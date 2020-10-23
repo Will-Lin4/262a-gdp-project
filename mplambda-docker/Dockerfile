@@ -67,19 +67,19 @@ WORKDIR /root
 
 COPY aws-sdk-cpp aws-sdk-cpp
 WORKDIR aws-sdk-cpp
-#RUN mkdir build
-#WORKDIR build
-#RUN cmake .. -DBUILD_ONLY="s3;lambda" -DENABLE_UNITY_BUILD=ON -DCMAKE_BUILD_TYPE=Release
-#RUN make -j 8
-#RUN make install
-#WORKDIR /root
-#
-#COPY nigh nigh
-#COPY mplambda mplambda
-#
-#WORKDIR mplambda
-#RUN mkdir -p build/Debug
-#WORKDIR build/Debug
-#RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig cmake -DCMAKE_BUILD_TYPE=Debug ../..
-#RUN make -j 8 
+RUN mkdir build
+WORKDIR build
+RUN cmake .. -DBUILD_ONLY="s3;lambda" -DENABLE_UNITY_BUILD=ON -DCMAKE_BUILD_TYPE=Release
+RUN make -j 8
+RUN make install
+WORKDIR /root
+
+COPY nigh nigh
+COPY mplambda mplambda
+
+WORKDIR mplambda
+RUN mkdir -p build/Debug
+WORKDIR build/Debug
+RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig cmake -DCMAKE_BUILD_TYPE=Debug ../..
+RUN make -j 8 
 
