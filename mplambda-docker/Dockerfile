@@ -32,6 +32,7 @@ WORKDIR /root
 COPY nigh nigh
 
 #uncomment below for aws lambda support
+#also move all files in aws-sdk into mplambda-docker folder
 
 #COPY aws-lambda-cpp aws-lambda-cpp
 #WORKDIR aws-lambda-cpp

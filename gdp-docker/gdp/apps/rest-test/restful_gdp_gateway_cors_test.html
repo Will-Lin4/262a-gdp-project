@@ -1,0 +1,60 @@
+<html>
+<head>
+<meta charset="utf8">
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"
+integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+crossorigin="anonymous"></script>
+
+<script src="restful_gdp_gateway_cors_test.js"> </script>
+
+</head>
+<body>
+  <div>
+    <H1>CORS pre-flight negotiation with GDP RESTful Gateway</H1>
+
+    <H4>
+      <pre>
+	A restful call is made to append a record, containing log name
+	and timestamp fields, to a GDP test log. That is followed by a
+	read of the log's last record, which should display the same
+	timestamp, appended to the "testcase" field. A completely
+	successful sequence (all 200 responses) verifies that the server
+	is supporting CORS requirements with basic authentication.
+      </pre>
+    </H4>
+
+    <div id="method_1"> </div>
+    <div id="request_1"> </div>
+    <div id="time_1"> </div>
+    <div> Response Code and Response </div>
+    <div id="responsecode_1"> </div>
+    <div id="response_1"> </div>
+    <br>
+    <div id="method_2"> </div>
+    <div id="request_2"> </div>
+    <div> Response Code and Response </div>
+    <div id="responsecode_2"> </div>
+    <div id="response_2"> </div>
+    <br>
+  </div>
+
+  <div>
+    <H1>Development binary (gdp-rest-01 /gdp/v2/gcl) also tested if enabled</H1>
+
+    <div id="method_3"> </div>
+    <div id="request_3"> </div>
+    <div id="time_3"> </div>
+    <div> Response Code and Response </div>
+    <div id="responsecode_3"> </div>
+    <div id="response_3"> </div>
+    <br>
+    <div id="method_4"> </div>
+    <div id="request_4"> </div>
+    <div> Response Code and Response </div>
+    <div id="responsecode_4"> </div>
+    <div id="response_4"> </div>
+    <br>
+  </div>
+
+</body>
+</html>

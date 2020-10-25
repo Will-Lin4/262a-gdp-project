@@ -1,0 +1,93 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE entity PUBLIC "-//UC Berkeley//DTD MoML 1//EN"
+    "http://ptolemy.eecs.berkeley.edu/xml/dtd/MoML_1.dtd">
+<entity name="actuatorFiring" class="ptolemy.actor.TypedCompositeActor">
+    <property name="_createdBy" class="ptolemy.kernel.attributes.VersionAttribute" value="11.0.devel">
+    </property>
+    <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={221, 101, 680, 516}, maximized=false}">
+    </property>
+    <property name="_vergilSize" class="ptolemy.actor.gui.SizeAttribute" value="[466, 427]">
+    </property>
+    <property name="_vergilZoomFactor" class="ptolemy.data.expr.ExpertParameter" value="0.7688442211055276">
+    </property>
+    <property name="_vergilCenter" class="ptolemy.data.expr.ExpertParameter" value="{375.49999999999994, 497.9547589869281}">
+    </property>
+    <property name="DE Director" class="ptolemy.domains.de.kernel.DEDirector">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[315.0, 125.0]">
+        </property>
+    </property>
+    <entity name="MonitorValue" class="ptolemy.actor.lib.gui.MonitorValue">
+        <doc>Monitor and display values</doc>
+        <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="20">
+        </property>
+        <property name="_icon" class="ptolemy.vergil.icon.UpdatedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="displayWidth">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[595.0, 265.0]">
+        </property>
+    </entity>
+    <entity name="GDPLogSubscribe" class="org.terraswarm.accessor.JSAccessor">
+        <property name="script" class="ptolemy.actor.parameters.PortParameter" value="/* Accessor for a log */&#10;&#10;var GDP = require('GDP');&#10;var log = null;&#10;var handle = null;&#10;&#10;exports.setup = function() {&#10;    input('trigger');&#10;    output('data', {'type': 'string'});&#10;    parameter('logname', {'type': 'string'});&#10;    parameter('startrec', {'type': 'int', 'value': 0});&#10;    parameter('numrec', {'type': 'int', 'value':0});&#10;};&#10;&#10;exports.get_next_data = function() {&#10;    // this blocks&#10;    while (true) {&#10;        var data = log.get_next_data(100);&#10;        if (data != null) {&#10;            send('data', data); &#10;            break;&#10;        }&#10;    }&#10;}&#10;&#10;&#10;exports.initialize = function() {&#10;&#10;    var logname = getParameter('logname');&#10;    log = GDP.GDP(logname, 1);&#10;    log.subscribe(getParameter('startrec'), getParameter('numrec'));&#10;    handle = addInputHandler('trigger', this.get_next_data);&#10;}&#10;&#10;exports.wrapup = function() {&#10;    if (handle != null) {&#10;        removeInputHandler(handle);&#10;    }&#10;}&#10;">
+            <property name="style" class="ptolemy.actor.gui.style.NoteStyle">
+                <property name="note" class="ptolemy.kernel.util.StringAttribute" value="NOTE: To see the script, invoke Open Actor">
+                </property>
+            </property>
+        </property>
+        <property name="accessorSource" class="org.terraswarm.accessor.JSAccessor$ActionableAttribute" value="/home/mor/works/gdp/gdp/demo/201510/accessor/GDP.accessor/GDPLogSubscribe.js">
+        </property>
+        <property name="_tableauFactory" class="ptolemy.vergil.toolbox.TextEditorTableauFactory">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="script">
+            </property>
+            <property name="syntaxStyle" class="ptolemy.kernel.util.StringAttribute" value="text/javascript">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[300.0, 265.0]">
+        </property>
+        <property name="logname" class="ptolemy.data.expr.Parameter" value="logStock">
+            <property name="_stringMode" class="ptolemy.kernel.util.SingletonAttribute">
+            </property>
+        </property>
+        <port name="trigger" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="data" class="ptolemy.actor.TypedIOPort">
+            <property name="output"/>
+        </port>
+    </entity>
+    <entity name="SingleEvent" class="ptolemy.actor.lib.SingleEvent">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[110.0, 225.0]">
+        </property>
+    </entity>
+    <entity name="MicrostepDelay" class="ptolemy.actor.lib.MicrostepDelay">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[435.0, 340.0]">
+        </property>
+    </entity>
+    <entity name="Merge" class="ptolemy.domains.de.lib.Merge">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[235.0, 265.0]">
+        </property>
+    </entity>
+    <relation name="relation" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation3" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation4" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation6" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[400.0, 265.0]">
+        </vertex>
+    </relation>
+    <link port="MonitorValue.input" relation="relation6"/>
+    <link port="GDPLogSubscribe.trigger" relation="relation"/>
+    <link port="GDPLogSubscribe.data" relation="relation6"/>
+    <link port="SingleEvent.output" relation="relation3"/>
+    <link port="MicrostepDelay.input" relation="relation6"/>
+    <link port="MicrostepDelay.output" relation="relation4"/>
+    <link port="Merge.input" relation="relation3"/>
+    <link port="Merge.input" relation="relation4"/>
+    <link port="Merge.output" relation="relation"/>
+</entity>

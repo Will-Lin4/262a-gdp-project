@@ -1,0 +1,400 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE entity PUBLIC "-//UC Berkeley//DTD MoML 1//EN"
+    "http://ptolemy.eecs.berkeley.edu/xml/dtd/MoML_1.dtd">
+<entity name="Application" class="ptolemy.actor.TypedCompositeActor">
+    <property name="_createdBy" class="ptolemy.kernel.attributes.VersionAttribute" value="11.0.devel">
+    </property>
+    <property name="DE Director" class="ptolemy.domains.de.kernel.DEDirector">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[105.0, 150.0]">
+        </property>
+    </property>
+    <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={0, 24, 1366, 744}, maximized=true}">
+    </property>
+    <property name="_vergilSize" class="ptolemy.actor.gui.SizeAttribute" value="[1152, 655]">
+    </property>
+    <property name="_vergilZoomFactor" class="ptolemy.data.expr.ExpertParameter" value="0.7988497167884958">
+    </property>
+    <property name="_vergilCenter" class="ptolemy.data.expr.ExpertParameter" value="{442.9016175270082, 372.7465004991942}">
+    </property>
+    <property name="SynchronizeToRealTime" class="ptolemy.actor.lib.SynchronizeToRealTime">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[205.0, 150.0]">
+        </property>
+    </property>
+    <entity name="DiscreteClock" class="ptolemy.actor.lib.DiscreteClock">
+        <property name="period" class="ptolemy.actor.parameters.PortParameter" value="2.0">
+        </property>
+        <doc>Create periodic timed events.</doc>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[45.0, 305.0]">
+        </property>
+    </entity>
+    <entity name="KVstore2" class="org.terraswarm.accessor.JSAccessor">
+        <property name="script" class="ptolemy.actor.parameters.PortParameter" value="/* Accessor for GDP Key-Value Store */&#10;&#10;var httpClient = require('httpClient');&#10;&#10;/** Define inputs and outputs. */&#10;exports.setup = function () {&#10;    input('trigger');&#10;    input('write', {'type': 'boolean', 'value': false});&#10;    input('key', {'type':'string'});&#10;    input('ts', {'type':'string'});&#10;    input('value', {'type': 'string'});&#10;    output('output', {'type':'string'});&#10;    parameter('url', {'type':'string', 'value':''});&#10;};&#10;&#10;&#10;// This is where we create the request that will be sent to httpClient&#10;exports.makeRequest = function() {&#10;&#10;    var ret = {};&#10;    var ts = get('ts');&#10;    var key = get('key');&#10;    var url = get('url');&#10;    console.log(get('write'));&#10;    if (get('write') == true) {&#10;        ret.method = &quot;PUT&quot;;&#10;        ret.body = get('value');&#10;        ret.url = url + key;&#10;    } else {&#10;        ret.method = &quot;GET&quot;;&#10;        var tmp = url + &quot;key=&quot; + key;&#10;        if (ts !== null) {&#10;            var _ts = ts.replace(&quot;000000&quot;, &quot;&quot;);&#10;            var d = Date.parse(_ts)/1000.0;        //milliseconds&#10;            tmp = tmp + &quot;&amp;ts=&quot; + d;&#10;        }&#10;        ret.url = tmp;&#10;    }&#10;&#10;    return ret;&#10;}&#10;&#10;&#10;// Keep track of pending HTTP request so it can be stopped if the&#10;// model stops executing.&#10;var request;&#10;&#10;// Based on the REST accessor.&#10;exports.issueCommand = function(callback) {&#10;&#10;    var req = this.makeRequest()&#10;    &#10;    // To ensure that the callback is called with the same context&#10;    // as this function, create a new function.&#10;    var thiz = this;&#10;    var contextCallback = function() {&#10;        callback.apply(thiz, arguments);&#10;    }&#10;    &#10;    request = httpClient.request(req, contextCallback);&#10;    request.on('error', function(message) {&#10;        if (!message) {&#10;            message = 'Request failed. No further information.';&#10;        }&#10;        error(message);&#10;    });&#10;    request.end();&#10;};&#10;&#10;exports.handleResponse = function(message) {&#10;    if (message !== null &amp;&amp; message !== undefined) {&#10;        send('output', JSON.parse(message.body).value);&#10;    } else {&#10;        send('output', null);&#10;    }&#10;};&#10;&#10;/** Register the input handler.  */&#10;exports.initialize = function () {&#10;    // Upon receiving a trigger input, issue a command.&#10;	addInputHandler('trigger', this.issueCommand, this.handleResponse);&#10;};&#10;&#10;/** Upon wrapup, stop handling new inputs.  */&#10;exports.wrapup = function () {&#10;    // In case there is streaming data coming in, stop it.&#10;    if (request) {&#10;        request.stop();&#10;        request = null;&#10;    }&#10;};&#10;">
+            <property name="style" class="ptolemy.actor.gui.style.NoteStyle">
+                <property name="note" class="ptolemy.kernel.util.StringAttribute" value="NOTE: To see the script, invoke Open Actor">
+                </property>
+            </property>
+        </property>
+        <property name="accessorSource" class="org.terraswarm.accessor.JSAccessor$ActionableAttribute" value="/home/mor/works/gdp/gdp/demo/201510/accessor/GDP.accessor/KVstore.js">
+        </property>
+        <property name="_tableauFactory" class="ptolemy.vergil.toolbox.TextEditorTableauFactory">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="script">
+            </property>
+            <property name="syntaxStyle" class="ptolemy.kernel.util.StringAttribute" value="text/javascript">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[540.0, 485.0]">
+        </property>
+        <property name="url" class="ptolemy.data.expr.Parameter" value="http://localhost:8811/">
+            <property name="_stringMode" class="ptolemy.kernel.util.SingletonAttribute">
+            </property>
+        </property>
+        <port name="trigger" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="write" class="ptolemy.actor.parameters.ParameterPort">
+            <property name="input"/>
+        </port>
+        <port name="key" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="ts" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="value" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="output" class="ptolemy.actor.TypedIOPort">
+            <property name="output"/>
+        </port>
+    </entity>
+    <entity name="DateToString2" class="ptolemy.actor.lib.conversions.DateToString">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[400.0, 510.0]">
+        </property>
+    </entity>
+    <entity name="ModifyDate" class="ptolemy.actor.lib.ModifyDate">
+        <property name="operation" class="ptolemy.data.expr.StringParameter" value="-">
+        </property>
+        <property name="unit" class="ptolemy.data.expr.StringParameter" value="Second">
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[300.0, 510.0]">
+        </property>
+        <property name="DocAttribute" class="ptolemy.vergil.basic.DocAttribute">
+        </property>
+    </entity>
+    <entity name="StringToDouble" class="ptolemy.actor.lib.conversions.StringToDouble">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[600.0, 325.0]">
+        </property>
+    </entity>
+    <entity name="StringConst" class="ptolemy.actor.lib.StringConst">
+        <property name="value" class="ptolemy.data.expr.Parameter" value="optical">
+        </property>
+        <doc>Create a constant sequence with a string value.</doc>
+        <property name="_icon" class="ptolemy.vergil.icon.BoxedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="80">
+            </property>
+            <property name="displayHeight" class="ptolemy.data.expr.Parameter" value="10">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[225.0, 220.0]">
+        </property>
+    </entity>
+    <entity name="CurrentDate" class="ptolemy.actor.lib.CurrentDate">
+        <doc>Output the current date.</doc>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[205.0, 425.0]">
+        </property>
+    </entity>
+    <entity name="KVstore" class="org.terraswarm.accessor.JSAccessor">
+        <property name="script" class="ptolemy.actor.parameters.PortParameter" value="/* Accessor for GDP Key-Value Store */&#10;&#10;var httpClient = require('httpClient');&#10;&#10;/** Define inputs and outputs. */&#10;exports.setup = function () {&#10;    input('trigger');&#10;    input('write', {'type': 'boolean', 'value': false});&#10;    input('key', {'type':'string'});&#10;    input('ts', {'type':'string'});&#10;    input('value', {'type': 'string'});&#10;    output('output', {'type':'string'});&#10;    parameter('url', {'type':'string', 'value':''});&#10;};&#10;&#10;&#10;// This is where we create the request that will be sent to httpClient&#10;exports.makeRequest = function() {&#10;&#10;    var ret = {};&#10;    var ts = get('ts');&#10;    var key = get('key');&#10;    var url = get('url');&#10;    console.log(get('write'));&#10;    if (get('write') == true) {&#10;        ret.method = &quot;PUT&quot;;&#10;        ret.body = get('value');&#10;        ret.url = url + key;&#10;    } else {&#10;        ret.method = &quot;GET&quot;;&#10;        var tmp = url + &quot;key=&quot; + key;&#10;        if (ts !== null) {&#10;            var _ts = ts.replace(&quot;000000&quot;, &quot;&quot;);&#10;            var d = Date.parse(_ts)/1000.0;        //milliseconds&#10;            tmp = tmp + &quot;&amp;ts=&quot; + d;&#10;        }&#10;        ret.url = tmp;&#10;    }&#10;&#10;    return ret;&#10;}&#10;&#10;&#10;// Keep track of pending HTTP request so it can be stopped if the&#10;// model stops executing.&#10;var request;&#10;&#10;// Based on the REST accessor.&#10;exports.issueCommand = function(callback) {&#10;&#10;    var req = this.makeRequest()&#10;    &#10;    // To ensure that the callback is called with the same context&#10;    // as this function, create a new function.&#10;    var thiz = this;&#10;    var contextCallback = function() {&#10;        callback.apply(thiz, arguments);&#10;    }&#10;    &#10;    request = httpClient.request(req, contextCallback);&#10;    request.on('error', function(message) {&#10;        if (!message) {&#10;            message = 'Request failed. No further information.';&#10;        }&#10;        error(message);&#10;    });&#10;    request.end();&#10;};&#10;&#10;exports.handleResponse = function(message) {&#10;    if (message !== null &amp;&amp; message !== undefined) {&#10;        send('output', JSON.parse(message.body).value);&#10;    } else {&#10;        send('output', null);&#10;    }&#10;};&#10;&#10;/** Register the input handler.  */&#10;exports.initialize = function () {&#10;    // Upon receiving a trigger input, issue a command.&#10;	addInputHandler('trigger', this.issueCommand, this.handleResponse);&#10;};&#10;&#10;/** Upon wrapup, stop handling new inputs.  */&#10;exports.wrapup = function () {&#10;    // In case there is streaming data coming in, stop it.&#10;    if (request) {&#10;        request.stop();&#10;        request = null;&#10;    }&#10;};&#10;">
+            <property name="style" class="ptolemy.actor.gui.style.NoteStyle">
+                <property name="note" class="ptolemy.kernel.util.StringAttribute" value="NOTE: To see the script, invoke Open Actor">
+                </property>
+            </property>
+        </property>
+        <property name="accessorSource" class="org.terraswarm.accessor.JSAccessor$ActionableAttribute" value="/home/mor/works/gdp/gdp/demo/201510/accessor/GDP.accessor/KVstore.js">
+        </property>
+        <property name="_tableauFactory" class="ptolemy.vergil.toolbox.TextEditorTableauFactory">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="script">
+            </property>
+            <property name="syntaxStyle" class="ptolemy.kernel.util.StringAttribute" value="text/javascript">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[530.0, 325.0]">
+        </property>
+        <property name="url" class="ptolemy.data.expr.Parameter" value="http://localhost:8811/">
+            <property name="_stringMode" class="ptolemy.kernel.util.SingletonAttribute">
+            </property>
+        </property>
+        <port name="trigger" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="write" class="ptolemy.actor.parameters.ParameterPort">
+            <property name="input"/>
+        </port>
+        <port name="key" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="ts" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="value" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+        </port>
+        <port name="output" class="ptolemy.actor.TypedIOPort">
+            <property name="output"/>
+        </port>
+    </entity>
+    <entity name="DateToString" class="ptolemy.actor.lib.conversions.DateToString">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[380.0, 425.0]">
+        </property>
+    </entity>
+    <entity name="MonitorValue" class="ptolemy.actor.lib.gui.MonitorValue">
+        <doc>Monitor and display values</doc>
+        <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="10">
+        </property>
+        <property name="_icon" class="ptolemy.vergil.icon.UpdatedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="displayWidth">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[725.0, 240.0]">
+        </property>
+    </entity>
+    <entity name="Const" class="ptolemy.actor.lib.Const">
+        <property name="value" class="ptolemy.data.expr.Parameter" value="10">
+        </property>
+        <doc>Create a constant sequence.</doc>
+        <property name="_icon" class="ptolemy.vergil.icon.BoxedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="60">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[215.0, 520.0]">
+        </property>
+    </entity>
+    <entity name="Comparator" class="ptolemy.actor.lib.logic.Comparator">
+        <property name="comparison" class="ptolemy.kernel.util.StringAttribute" value="&gt;">
+            <property name="style" class="ptolemy.actor.gui.style.ChoiceStyle">
+                <property name="gt" class="ptolemy.kernel.util.StringAttribute" value="&gt;">
+                </property>
+                <property name="ge" class="ptolemy.kernel.util.StringAttribute" value="&gt;=">
+                </property>
+                <property name="lt" class="ptolemy.kernel.util.StringAttribute" value="&lt;">
+                </property>
+                <property name="le" class="ptolemy.kernel.util.StringAttribute" value="&lt;=">
+                </property>
+                <property name="eq" class="ptolemy.kernel.util.StringAttribute" value="==">
+                </property>
+            </property>
+        </property>
+        <property name="tolerance" class="ptolemy.data.expr.Parameter" value="10.0">
+        </property>
+        <property name="_icon" class="ptolemy.vergil.icon.AttributeValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="comparison">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[735.0, 420.0]">
+        </property>
+    </entity>
+    <entity name="MonitorValue2" class="ptolemy.actor.lib.gui.MonitorValue">
+        <doc>Monitor and display values</doc>
+        <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="10">
+        </property>
+        <property name="_icon" class="ptolemy.vergil.icon.UpdatedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="displayWidth">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[725.0, 525.0]">
+        </property>
+    </entity>
+    <entity name="StringToDouble2" class="ptolemy.actor.lib.conversions.StringToDouble">
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[605.0, 485.0]">
+        </property>
+    </entity>
+    <entity name="TimedPlotter" class="ptolemy.actor.lib.gui.TimedPlotter">
+        <property name="automaticRescale" class="ptolemy.data.expr.Parameter" value="true">
+        </property>
+        <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={120, 78, 500, 349}, maximized=false}">
+        </property>
+        <property name="_plotSize" class="ptolemy.actor.gui.SizeAttribute" value="[500, 300]">
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[695.0, 160.0]">
+        </property>
+        <configure>
+<?plotml <!DOCTYPE plot PUBLIC "-//UC Berkeley//DTD PlotML 1//EN"
+"http://ptolemy.eecs.berkeley.edu/xml/dtd/PlotML_1.dtd">
+<plot>
+<title>TimedPlotter</title>
+<xRange min="0.0" max="635.0"/>
+<yRange min="-3.249999999999995" max="168.59"/>
+</plot>?>
+        </configure>
+    </entity>
+    <entity name="TimedPlotter2" class="ptolemy.actor.lib.gui.TimedPlotter">
+        <property name="automaticRescale" class="ptolemy.data.expr.Parameter" value="true">
+        </property>
+        <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={137, 442, 500, 349}, maximized=false}">
+        </property>
+        <property name="_plotSize" class="ptolemy.actor.gui.SizeAttribute" value="[500, 300]">
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[695.0, 580.0]">
+        </property>
+        <configure>
+<?plotml <!DOCTYPE plot PUBLIC "-//UC Berkeley//DTD PlotML 1//EN"
+"http://ptolemy.eecs.berkeley.edu/xml/dtd/PlotML_1.dtd">
+<plot>
+<title>TimedPlotter</title>
+<xRange min="5.0" max="480.0"/>
+<yRange min="-29.23" max="245.25"/>
+</plot>?>
+        </configure>
+    </entity>
+    <entity name="BooleanToAnything" class="ptolemy.actor.lib.conversions.BooleanToAnything">
+        <property name="falseValue" class="ptolemy.data.expr.Parameter" value="false">
+        </property>
+        <property name="trueValue" class="ptolemy.data.expr.Parameter" value="true">
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[855.0, 420.0]">
+        </property>
+    </entity>
+    <entity name="MonitorValue3" class="ptolemy.actor.lib.gui.MonitorValue">
+        <doc>Monitor and display values</doc>
+        <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="5">
+        </property>
+        <property name="_icon" class="ptolemy.vergil.icon.UpdatedValueIcon">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="value">
+            </property>
+            <property name="displayWidth" class="ptolemy.data.expr.Parameter" value="displayWidth">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[975.0, 350.0]">
+        </property>
+    </entity>
+    <entity name="GDPLogAppend" class="org.terraswarm.accessor.JSAccessor">
+        <property name="script" class="ptolemy.actor.parameters.PortParameter" value="/* Accessor for a log */&#10;&#10;var GDP = require('GDP');&#10;var log = null;&#10;var handle = null;&#10;&#10;exports.setup = function() {&#10;    input('trigger');&#10;    input('data', {'type': 'string'});&#10;    parameter('logname', {'type': 'string'});&#10;};&#10;&#10;&#10;exports.append = function(data) {&#10;    console.log(&quot;Okay, inside append&quot;);&#10;    console.log(typeof(log));&#10;    var data = get('data');&#10;    log.append(data);&#10;}&#10;&#10;&#10;exports.initialize = function() {&#10;&#10;    var logname = getParameter('logname');&#10;    log = GDP.GDP(logname, 2);&#10;    handle = addInputHandler('trigger', this.append);&#10;}&#10;&#10;exports.wrapup = function() {&#10;    if (handle !== null) {&#10;        removeInputHandler(handle);&#10;    }&#10;}&#10;">
+            <property name="style" class="ptolemy.actor.gui.style.NoteStyle">
+                <property name="note" class="ptolemy.kernel.util.StringAttribute" value="NOTE: To see the script, invoke Open Actor">
+                </property>
+            </property>
+        </property>
+        <property name="accessorSource" class="org.terraswarm.accessor.JSAccessor$ActionableAttribute" value="/home/mor/works/gdp/gdp/demo/201510/accessor/GDP.accessor/GDPLogAppend.js">
+        </property>
+        <property name="_tableauFactory" class="ptolemy.vergil.toolbox.TextEditorTableauFactory">
+            <property name="attributeName" class="ptolemy.kernel.util.StringAttribute" value="script">
+            </property>
+            <property name="syntaxStyle" class="ptolemy.kernel.util.StringAttribute" value="text/javascript">
+            </property>
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[1020.8075866699219, 492.4223175048828]">
+        </property>
+        <property name="logname" class="ptolemy.data.expr.Parameter" value="logActuator">
+            <property name="_stringMode" class="ptolemy.kernel.util.SingletonAttribute">
+            </property>
+        </property>
+        <port name="trigger" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+            <property name="defaultValue" class="ptolemy.data.expr.Parameter">
+            </property>
+        </port>
+        <port name="data" class="ptolemy.actor.TypedIOPort">
+            <property name="input"/>
+            <property name="defaultValue" class="ptolemy.data.expr.Parameter">
+            </property>
+        </port>
+    </entity>
+    <relation name="relation3" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[140.0, 305.0]">
+        </vertex>
+    </relation>
+    <relation name="relation7" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation2" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation8" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation9" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[245.0, 425.0]">
+        </vertex>
+    </relation>
+    <relation name="relation4" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation10" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[415.0, 290.0]">
+        </vertex>
+    </relation>
+    <relation name="relation11" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[640.0, 325.0]">
+        </vertex>
+    </relation>
+    <relation name="relation5" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[640.0, 485.0]">
+        </vertex>
+    </relation>
+    <relation name="relation12" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation13" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <relation name="relation15" class="ptolemy.actor.TypedIORelation">
+        <property name="width" class="ptolemy.data.expr.Parameter" value="-1">
+        </property>
+        <vertex name="vertex1" value="[915.0, 420.0]">
+        </vertex>
+    </relation>
+    <relation name="relation6" class="ptolemy.actor.TypedIORelation">
+    </relation>
+    <link port="DiscreteClock.output" relation="relation3"/>
+    <link port="KVstore2.trigger" relation="relation3"/>
+    <link port="KVstore2.key" relation="relation10"/>
+    <link port="KVstore2.ts" relation="relation7"/>
+    <link port="KVstore2.output" relation="relation12"/>
+    <link port="DateToString2.input" relation="relation8"/>
+    <link port="DateToString2.output" relation="relation7"/>
+    <link port="ModifyDate.input" relation="relation9"/>
+    <link port="ModifyDate.value" relation="relation4"/>
+    <link port="ModifyDate.output" relation="relation8"/>
+    <link port="StringToDouble.input" relation="relation"/>
+    <link port="StringToDouble.output" relation="relation11"/>
+    <link port="StringConst.output" relation="relation10"/>
+    <link port="StringConst.trigger" relation="relation3"/>
+    <link port="CurrentDate.output" relation="relation9"/>
+    <link port="CurrentDate.trigger" relation="relation3"/>
+    <link port="KVstore.trigger" relation="relation3"/>
+    <link port="KVstore.key" relation="relation10"/>
+    <link port="KVstore.ts" relation="relation2"/>
+    <link port="KVstore.output" relation="relation"/>
+    <link port="DateToString.input" relation="relation9"/>
+    <link port="DateToString.output" relation="relation2"/>
+    <link port="MonitorValue.input" relation="relation11"/>
+    <link port="Const.output" relation="relation4"/>
+    <link port="Const.trigger" relation="relation3"/>
+    <link port="Comparator.left" relation="relation11"/>
+    <link port="Comparator.right" relation="relation5"/>
+    <link port="Comparator.output" relation="relation6"/>
+    <link port="MonitorValue2.input" relation="relation5"/>
+    <link port="StringToDouble2.input" relation="relation12"/>
+    <link port="StringToDouble2.output" relation="relation5"/>
+    <link port="TimedPlotter.input" relation="relation11"/>
+    <link port="TimedPlotter2.input" relation="relation5"/>
+    <link port="BooleanToAnything.input" relation="relation6"/>
+    <link port="BooleanToAnything.output" relation="relation13"/>
+    <link port="MonitorValue3.input" relation="relation13"/>
+    <link port="GDPLogAppend.trigger" relation="relation15"/>
+    <link port="GDPLogAppend.data" relation="relation15"/>
+</entity>

@@ -1,0 +1,84 @@
+This file summarizes the usage of at least some of the applications
+in this directory (more to come).
+
+GCL means "GDP Channel/Log".  GCLs consist of a series of opaque
+(to the GDP) records numbered from 1.  Although records also have
+commit timestamps it is not possible to use those as keys at this
+time; in particular, timestamps are not necessarily unique.
+
+Nearly all programs accept a "-D" flag to set debugging options.
+
+
+NAMING
+
+Internal GCL names are represented as binary strings of 256 bits.
+Externally this is shown as a 43-character string that is a variant
+on base64 encoding designed to be compatible with URIs.
+
+Alternatively, a user may use an arbitrary string.  It is recommended
+that this look like a UNIX pathname but using another character as
+the separator (to make the names easy to encode in a URI).  The valid
+characters for URIs are "-", "_", ".", and "~".  This string is
+hashed to an internal name using sha256.  For example, the name
+"x" is the same as "LXEWQrcmsEQBYnyp-6wy9chTD7GQPMTbAiWHF5IaSIE".
+At the moment all users share a namespace, but in the future the
+user's public key will be included.
+
+
+GDP-WRITER
+
+The gdp-writer program creates or appends to a GCL.  Although
+the GDP accepts binary input, this program reads newline terminated
+text from the standard input.  Each line is written to the GCL
+named on the command line, or if no name is given, to a GCL with
+a random name (which will be printed).
+
+GCLs are created unless the -a (append) flag is included.
+
+
+GDP-READER
+
+The gdp-reader program (unsurprisingly) reads and prints data from
+a GCL.  It assumes that the data is text; if not it will print random
+binary gibberish.
+
+There are three "modes" for reading.  The default does individual
+read calls for each record being returned.  The "-m" flag enables
+"multiread" which does one call to the GDP that returns multiple
+results.  The "-s" flag enables "subscribe" mode, which is like
+multiread but waits for new data to be written to a GCL (i.e., it
+doesn't necessarily complete in finite time).
+
+All modes take a "-f" flag to specify the first record number and a
+"-n" flag to set the number of records to be returned.  If the -f
+value is negative it counts from the end of the GCL, i.e., the
+most recently written records.  If a negative -f value would specify
+a non-positive record number (i.e., a record before the start of the
+GCL) then 1 is used.
+
+If the -n value is zero it means "infinite" (this is also the
+default).  For all but -s mode this really means "end of GCL", as
+does a value larger than the actual number of records in the GCL.
+Hence, "-n N" really means "at most N records".
+
+In -s mode the read will will continue to wait for more data to be
+published to the GCL.  For example, the following commands will act
+as a transmission channel:
+
+	Window 1>	gdp-writer xyzzy
+	Window 2>	gdp-reader -s xyzzy
+	Window 1>	(input data)
+
+Note that the gdp-writer has to be started first so that xyzzy
+exists when gdp-reader starts up.
+
+
+GDP-REST
+
+This is the REST interface to the GDP.  Its use is described in the
+README file in the parent directory.
+
+
+RW-BENCH
+
+Simple performance testing.  Documentation is To Be Done.

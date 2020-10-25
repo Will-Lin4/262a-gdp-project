@@ -1,0 +1,311 @@
+**********************************************************************
+NOTA BENE:  I know these instructions are not completely converted
+to the new architecture that separates out the routing layer from
+the log daemons.  Use discretion when following them.
+**********************************************************************
+
+This directory contains the software needed for the demo for
+the Swarm Lab retreat in January 2015.  It only runs on the
+Raspberry Pi at the moment, since it needs GPIO pins.  It differs
+from the previous (Terraswarm) demo in that it incorporates the
+"routia" routing layer.
+
+The basic concept is simple: there are two Raspberry Pis.  One runs
+a program called "pi-writer" which monitors a GPIO pin on the Pi.
+On state change the program writes its state as a JSON object to a
+GCL.  The other Pi runs a program called pi-reader which subscribes
+to that GCL and writes new values to the GPIO pin connected to a LED.
+It demonstrates communication and logging of data with the GDP.
+A third system runs the routing layer, and a fourth runs a log server
+(these last two could be the same system).  You may also want to have
+a laptop to monitor the traffic and show off the REST interface.
+
+
+COMPILING
+
+To compile the demo, you'll need to install the wiringPi library
+(http://wiringpi.com), which will have to be compiled on the
+Pi itself.  It should install all its files into /usr/local.
+
+You'll obviously need to have the GDP library installed as well.
+This should use the same procedure as any other system.  A
+standard build will compile gdpd, which you won't be using, but
+that won't hurt anything.
+
+You should be ready to build using "make":
+
+    cd ~eric/SwarmLab/src/gdp/demo/201501
+    make
+
+The include files and libraries from wiringPi should be found
+automatically for you, but if not you may need to adjust "INCADD"
+and/or "LIBADD" on the "make" command line, e.g.,
+
+    make INCADD=-I/usr/local/include LIBADD=-L/usr/local/lib
+
+We'll run the demo from the demo directory itself, so there is no
+need to install anything further on the Pi.
+
+
+SETTING UP THE DEMO
+
+There are two RPs: one to sense the button, one to actuate the
+indicators.
+
+The wiring for the button is trivial: wire a button between the
+GPIO pin you are using and ground.  The pull-up is done internally.
+
+The LED is similar, but with the addition of a 220 ohm resistor
+in series.  You may need to tweak the resistor depending on the
+LED, but this value seems to be a reasonable compromise.
+*** Note: we are using a driver circuit to be able to drive a
+larger load.  That circuit contains all you need. ***
+
+There also needs to be a machine to run the Routia routing code
+(see Nitesh Mor for details) and one to run gdplogd (which can
+be the same machine).  Before you can use Routia you need to have
+Python 2.7 and the p27-twisted package installed.
+
+We also have an Intel NUC that can run a gdplogd and/or Routia.
+This is configured as a Xen box and has a domU running.  That
+VM is named nuc00a.  Lastly, there is a Beaglebone black.
+Unfortunately neither of those machines have a desktop environment
+set up.
+
+I'm assuming that there will be one USB keyboard/mouse and monitor
+with HDMI support plugged into one of the machines that has GUI
+support (for displaying multiple windows).  It will be "nice" to
+have another machine (personal laptop will be fine) available,
+but that is not required.
+
+At the moment I have a Soekris box running m0n0wall acting as a
+NAT gateway for the various machines (so we don't have to
+reconfigure more than the Soekris when we move to a new network),
+and a hub with an uplink and enough cables to connect everything
+together.  You will have to know the IP addresses of both Pis, so
+you'll probably have to move the keyboard and monitor between them
+to figure this out.
+
+(HINT: Currently the assigned addresses are all in the 10.0.4.*
+network, with host numbers as follows: gdp-pi-01 = 133, gdp-pi-02
+= 129, nuc00a = 131, beaglebone = 132).
+
+There should be a GDP routing daemon ("routia"), a GDP log daemon
+("gdplogd") and a REST daemon (gdp-rest) running on the host
+gdp-01.eecs.berkeley.edu.  There is a special user "gdpd" to
+run those daemons; if they aren't running, start them using:
+
+    sudo -u gdpd ~gdpd/bin/start-gdp
+
+The appropriate GCL ("demo/201501/pi") must already exist on
+the gdp-01 system.  You can test that: From the main GDP source
+directory (not the demo directory --- this is ~eric/SwarmLab/src/gdp
+on the Pis), try the command:
+
+    apps/reader-test -n 1 demo/201501/pi
+
+If this gives a "not found" error, use:
+
+    apps/gcl-create edu.berkeley.eecs.gdp-01.gdplogd demo/201501/pi
+
+to create it (the two human-readable names will be converted into
+machine-readable 256-bit names --- this is NOT intended to be a
+long-term feature of the GDP; in the future it will be done using
+a directory service).
+
+It will also be useful to have Chrome running on your laptop with
+an extension called "Postman", available from http://getpostman.com.
+This will allow you to send arbitrary methods (GET, PUT, and POST,
+among others) to a web server.  This will be useful for showing
+off the REST interface.
+
+You should also have the GDP suite compiled and running on your
+laptop.
+
+
+SUMMARY OF REQUIREMENTS
+
+* Two Raspberry Pis with the GDP and demo software pre-installed.
+
+* One other system to run a gdplogd instance and Routia.
+
+* At least one keyboard/mouse/monitor.  A monitor with HDMI
+input is prefered.  The keyboard and mouse must be USB.  A KVM
+switch would be useful but not required.
+
+* Hard wired ethernet with at least four ports available and
+necessary cables.  Sorry, I haven't been able to get wireless
+working.
+
+* A preconfigured Soekris box running m0n0wall.
+
+* Enough power to run the computers, the monitor, and the ethernet
+switch (if needed): six outlets total, preferably seven "just in
+case".  Some of the wall warts are big and will cover more than
+one outlet.
+
+* A button input that can be wired to the GPIO pins on one of the
+Pis.  The default pin is GPIO-18, pin P1-12.
+
+* A visual output that can be wired to the GPIO pins on one of
+the Pis.  The default pin is GPIO-17, pin P1-11.  If using a
+LED you'll also need a 220 ohm resistor to ground.
+
+* Access to gdp-01.eecs.berkeley.edu with sudo permission.  This
+is only needed to start up the GDP daemon if it is not already
+running.
+
+
+RUNNING THE DEMO
+
+Once everything is compiled, running the demo is pretty trivial.
+There should be a login on each Pi called "pi", password
+"pineapple" which has password-less sudo root access (this is
+required to access the GPIO pins).
+
+* Log into one of the Pis.  Use "/sbin/ifconfig eth0" to print the
+information about the eth0 interface, which should include the IP
+address.  Note this number.
+
+* Without turning off that Pi, unplug the USB and HDMI cables and
+re-connect them to the other Pi.  If you power cycle you might get
+a different IP address, so try to avoid this.
+
+* Optionally, reconnect the USB and HDMI to a third machine to use
+for monitoring (or use a laptop).
+
+* Open at least four windows.  In Window A, log into the machine
+connected to the button, in Window B, log into the machine
+connected to the light, in Window C, log into your routing node,
+and in Window D, log into the gdplogd node.  You're probably logged
+into one of those machines, so you won't have to do anything there,
+but for the other use "ssh", using the IP address you found above.
+
+* In Window D, start up routia.  The location of routia is TBD.
+
+* In Window C, start up gdplogd.
+
+* In Windows A and B, type:
+
+    cd ~eric/SwarmLab/src/gdp/demo/201501
+
+* In Window A, type:
+
+    sudo ./pi-writer
+
+This will produce a couple of lines of output and then go quiet.
+
+* In Window B, type:
+
+    sudo ./pi-reader
+
+This will produce a couple of lines of output.
+
+* To test, press the button.  You should see a message appear in
+Window B and the light should come on.  Releasing the button should
+show another message and the light should turn off.
+
+* On a terminal window on your laptop, you can use:
+
+    .../apps/reader-test -f -1 -s demo/201501/pi
+
+where "..." is the path to the GDP build directory.  This will show
+the last entry in the GCL and then display any new data as it comes
+in.  As you push the button you will see JSON objects displayed
+here.  This will also demonstrate how each record is timestamped
+when it is committed (this uses the clock on the server, not on
+the Pi).
+
+* In a Chrome window on your laptop running Postman, you can enter
+data directly into the GCL using the REST interface without pushing
+the button.  For example:
+
+    URL = gdp-01.eecs.berkeley.edu:8080/gdp/v1/gcl/demo/201501/pi
+    Method = POST
+    Text = {"value": true}
+
+(use "raw" to enter the text).  Send this using the "Send" button.
+Any windows monitoring the GCL should show the record, and the light
+should come on (without pressing the button).  Sending this again
+with with value false will turn it off again.
+
+* If you don't have Chrome/Postman running, you can do the same thing
+with writer-test:
+
+    .../apps/writer-test -a demo/201501/pi
+
+Sending lines with {"value": true} and {"value": false} will turn
+the light on and off.
+
+
+WHAT'S THE POINT?
+
+There are obviously easier ways to turn a light on and off.  This
+demonstrates several things:
+
+* Communication can occur through the GCL (GDP Channel/Log)
+paradigm.
+
+* That communication is reasonably fast (see below) because it
+uses push notifications (subscriptions) rather than polling.
+
+* Other agents can participate in the process, either as
+consumers or producers, using a variety of interfaces.
+
+* The GDP model does not tie you to one machine architecture or
+even one language (we currently have programmatic bindings for
+C, Python, Java, and Javascript, with more coming).  (You can
+only demonstrate this if you have a non-Linux laptop.)
+
+* Although this demo uses JSON as the data encoding, the GDP
+itself is completely agnostic.  The important thing is that the
+data that comes out is identical to the data that goes in.
+
+* XXX fill in more here XXX
+
+
+PERFORMANCE
+
+If pi-writer and pi-reader are running on the same machine you
+can use the "-L <logname>" flag on both commands.  This will cause
+a simple timing log to be written with microsecond resolution.
+This is only meaningful if they are sharing a clock (i.e., running
+on the same machine).  In the Swarm Lab we were getting about a
+4 millisecond round trip time over a wired network (without having
+done any optimization).  The demo facility will probably be slower
+because of network delays, but hopefully with no perceptible lag
+between the button push and the light response.
+
+
+TWEAKING THE DEMO
+
+Both pi-reader and pi-writer allow the name of the GCL to be set
+on the command line using the -g flag (default: demo/201501/pi).
+Note that these must be the same on each program.
+
+The GPIO pin used can be set using the -p flag.  Note that this
+flag refers to the internal logical GPIO pin number, not the physical
+pin number on the Pi.  Searching for "Raspberry Pi GPIO pins" should
+show you the correct mappings for the various models of the Pi.
+Note that the -p values will usually be different.  The defaults
+as compiled in to the code are:
+
+    pi-writer      GPIO-18        P1-12
+    pi-reader      GPIO-17        P1-11
+
+Ground is on pins P1-06 and P1-09.
+
+The address of the routing daemon should be set in
+/usr/local/etc/ep_adm_params/gdp on the Pis.  The default is:
+
+    swarm.gdp.routers=gdp-01.eecs.berkeley.edu:2468
+    
+
+NOW HOW MUCH WOULD YOU PAY?
+
+But wait!  There's more!  The ble-reader program is essentially the
+equivalent of pi-reader, but it reads a slightly different format GCL
+and drives two other pins (intended to be connected to LEDs).  This
+is the display part of the Mark Oehlberg's and Alex Tyler's Bluetooth
+Low-Energy demo.  I don't know how to hook up the sender end of the
+demo.

@@ -1,0 +1,15 @@
+gcl-clone
+gdp-create
+gdp-delete
+gdp-find-xname
+gdp-log-view
+gdp-name-add
+gdp-name-xlate
+gdp-rest
+gdp-reader
+gdp-writer
+log-exists
+log-mirror
+rw-bench
+gdp-zcbrowse
+gdp-zcpublish

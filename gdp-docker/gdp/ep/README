@@ -1,0 +1,35 @@
+LIBEP: Enhanced Portability Library
+
+Copyright (c) 2008-2014, Eric P. Allman.  All rights reserved.
+
+LIBEP is a library I wrote initially to explore some ideas with the
+intent of changing some of the low-level code in sendmail.  That
+never happened, but I decided to release this library anyway in the
+hopes that others may find it useful or informative.
+
+The layout of this directory is as follows:
+
+    LICENSE	The license (it's a BSD license).
+    README	This file.
+    benchmark	Some performance benchmarks from a while back,
+		including some results.
+    conf	Contains ep_conf.h for various platforms.  The
+		default version (in src) should work though, so
+		this is basically redundant.
+    doc		Some documentation.  The main file is
+		Libep-Notes.dbk, which is the docbook source
+		for the primary documentation.  There should
+		also be an HTML version in Libep-Notes.html.
+    src		The source code.  On common platforms (i.e., those
+		that I have tested) compiling this should just be
+		a matter of typing "make".
+    test	Some test scripts for basic functionality.  There
+		should be a great deal more, but these test all
+		of the important subsystems.
+
+I've done a blog posting about the library as well, which includes
+an assessment of what I thing works well, works sort of, and doesn't
+work well.  My blog is at http://www.neophilic.com/blogs/eric.php.
+
+If you have comments, questions, or bug reports, please send them
+to me, eric _AT_ neophilic _DOT_ com.

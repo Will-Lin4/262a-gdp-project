@@ -1,0 +1,29 @@
+#
+#  This runs on the docker host.  The wrapper actually starts the
+#  container, which in turn starts mariadb.
+#
+
+[Unit]
+Description=MariaDB server Docker container
+Requires=network-online.target
+After=network-online.target
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+NotifyAccess=all
+Environment=GDP_ROOT=@GDP_ROOT@
+Environment=GDP_VER=@GDP_VER@
+
+ExecStart=/bin/sh @GDP_ROOT@/sbin/gdp-mariadb-start.sh
+Restart=always
+
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=gdp-mariadb
+SyslogFacility=@GDP_SYSLOG_FACILITY@
+SyslogLevel=@GDP_SYSLOG_LEVEL@
+
+[Install]
+WantedBy=multi-user.target

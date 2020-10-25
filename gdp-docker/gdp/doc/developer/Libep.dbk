@@ -1,0 +1,2731 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+"http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd">
+<article class="techreport">
+  <articleinfo>
+    <title>Notes on "EP" Library</title>
+
+    <author>
+      <firstname>Eric</firstname>
+
+      <surname>Allman</surname>
+    </author>
+
+    <copyright>
+      <year>2008, 2014&ndash;2018 Eric P. Allman. All rights reserved.</year>
+    </copyright>
+
+    <date>2018-08-15</date>
+  </articleinfo>
+
+  <section>
+    <title>INTRODUCTION</title>
+
+    <para>This document describes the Enhanced Portability library. This is a
+    reduced version of Eric's Portability library (designed for sendmail),
+    removing many things that didn't work out or proved unnecessary, e.g., the
+    entire I/O subsystem. It was originally intended to be used in sendmail,
+    so some of the terminology is geared toward the email world; none the
+    less, it should be generally useful.</para>
+
+    <para>Programs using <symbol>libep</symbol> should be able to minimize
+    <symbol>#ifdef</symbol> since often non-portable functionality is wrapped
+    in portability routines; for example, BSD-derived systems and
+    Linux-derived systems differ in how you get the name of the currently
+    running program. These differences are hidden if the application calls
+    <function>ep_app_getprogname</function>.</para>
+
+    <section>
+      <title>Design Goals</title>
+
+      <itemizedlist>
+        <listitem>
+          <para>Portable, to the extent possible. Where not possible, there
+          needs to be a clearly codified way to represent the externally
+          visible semantic differences.</para>
+        </listitem>
+
+        <listitem>
+          <para>Efficient.</para>
+        </listitem>
+
+        <listitem>
+          <para>Customizable -- try to implement mechanism, not policy.</para>
+        </listitem>
+
+        <listitem>
+          <para>TBD: It should be entirely UTF-8 internally. Any translations
+          to other character sets should be done on input or output, and then
+          only as strictly necessary.</para>
+        </listitem>
+      </itemizedlist>
+    </section>
+
+    <section>
+      <title>Assumptions</title>
+
+      <para>Use of this library requires that you have a C compiler that is
+      compliant with ANSI C as defined by ANSI/ISO 9899-1999. Also requires an
+      environment that is at least Posix based on Posix.1-2008.</para>
+    </section>
+
+    <section>
+      <title>Conventions</title>
+
+      <para><itemizedlist>
+          <listitem>
+            <para>All externally visible names (i.e., those not declared
+            "static" in a file) shall be named ep_* (for routine names) or Ep*
+            (for variable names). In a few cases, the names may begin with
+            __ep or __Ep; such names would be in the global namespace, but
+            would be intended for use internal to the library only. There are
+            a few cases where "standard" names (such as
+            <function>strlcpy</function>) are defined if they are not included
+            in the standard library.</para>
+          </listitem>
+        </itemizedlist></para>
+    </section>
+
+    <section>
+      <title>Terminology</title>
+
+      <section>
+        <title>Warning, Error, Severe, Abort</title>
+
+        <para>These words get used fairly loosely, so they are worth defining.
+        In the context of libep:</para>
+
+        <itemizedlist>
+          <listitem>
+            <para>Warning means a condition that is expected in normal
+            operations, but is not the usual case. Reading an end-of-file on a
+            file might be a warning. Applications need to be aware of these,
+            but are expected to either ignore them or recover easily. This can
+            also be used for temporary errors which are likely to recover
+            after a delay. For example, the inability to open a connection to
+            a remote server might recover automatically if that server is
+            re-started. However, this sort of warnings that persist should
+            turn into permanent errors in a fashion appropriate for the
+            application.</para>
+          </listitem>
+
+          <listitem>
+            <para>Error means a situation that should not occur, but isn't
+            terribly unusual. For example, an attempt to open a file that
+            isn't accessible would be an error. Applications must be aware of
+            such conditions and handle them gracefully.</para>
+          </listitem>
+
+          <listitem>
+            <para>Severe means a situation that should not occur iand requires
+            exceptional handling. Severe errors are drastic conditions, but
+            are not so severe that the application can't take some reasonable
+            backout action.</para>
+          </listitem>
+
+          <listitem>
+            <para>Abort means a situation so drastic that an application
+            cannot be expected to make any reasonable recovery. These might
+            include assertion errors and memory allocation failures during a
+            critical step (e.g., something where backing out a single thread
+            won't solve the problem). About the only thing an application can
+            reasonably do is log an abort error and exit. In particular, an
+            abort is appropriate when an attempt for an application to recover
+            is likely to do additional damage. These should be extremely
+            rare.</para>
+          </listitem>
+        </itemizedlist>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>GENERAL ISSUES</title>
+
+    <para>All files using this library must use "<code>#include
+    &lt;ep/ep.h&gt;</code>".</para>
+  </section>
+
+  <section>
+    <title>STATUS CODES</title>
+
+    <para>Almost all functions return an <type>EP_STAT</type> value. This is a
+    short (integer-encoded) status value that gives you a brief idea of how
+    severe the problem was and some idea of what it was, but not much else.
+    Think of it as an errno equivalent. Functions returning any status other
+    than OK are expected to provide some other way of returning detailed
+    data.</para>
+
+    <para><type>EP_STAT</type>s are also used as message identifiers for
+    logging (below).</para>
+
+    <para>Status codes are defined in
+    <filename>&lt;ep/ep_stat.h&gt;</filename>.</para>
+
+    <section>
+      <title>Severities</title>
+
+      <para>Severities are:</para>
+
+      <variablelist termlength="20">
+        <varlistentry>
+          <term><errortype>EP_STAT_SEV_OK</errortype></term>
+
+          <listitem>
+            <para>Everything is fine. Detail may contain info. For messages,
+            can be used for debugging.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><errortype>EP_STAT_SEV_WARN</errortype></term>
+
+          <listitem>
+            <para>The function partially succeeded, but there is something
+            that the application should be aware of, e.g., an end of file or a
+            short data read. Alternatively, the functionfailed, but it might
+            work again on a later try.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><errortype>EP_STAT_SEV_ERROR</errortype></term>
+
+          <listitem>
+            <para>A normal error status. The call failed.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><errortype>EP_STAT_SEV_SEVERE</errortype></term>
+
+          <listitem>
+            <para>A severe error status. The call failed, and the caller
+            should try to back out.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><errortype>EP_STAT_SEV_ABORT</errortype></term>
+
+          <listitem>
+            <para>A critical error occured &mdash; you should clean up and
+            exit as soon as possible; the program cannot be expected to
+            operate correctly.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>Some functions for testing values:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISOK</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this is an
+            <errortype>EP_STAT_SEV_OK</errortype> status code.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_WARN</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this is an "warning" severity status code:
+            <errortype>EP_STAT_SEV_WARN</errortype>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISERROR</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this is an "error" severity status code:
+            <errortype>EP_STAT_SEV_ERROR</errortype></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISFAIL</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this message is a "failure" severity status
+            code: <errortype>EP_STAT_SEV_ERROR</errortype> or higher.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISSEVERE</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this is an "severe" severity status code:
+            <errortype>EP_STAT_SEV_SEVERE</errortype></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISSFAIL</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this message is a "major" severity status
+            code: <errortype>EP_STAT_SEV_SEVERE</errortype> or higher</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_SEV_ISABORT</function>(st)</term>
+
+          <listitem>
+            <para>Returns true if this is an "abort" severity status code:
+            <errortype>EP_STAT_SEV_ABORT</errortype></para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </section>
+
+    <section>
+      <title>Status Code Representation</title>
+
+      <para>Status codes are represented as four-part values: severity,
+      registry, module, and detail. The severities are described above.
+      Registries are globally registered by neophilic.com and are defined in
+      ep_registry.h. There are some registries for general use; in particular,
+      registry numbers between 0x001 and 0x1FF are available for local
+      (non-global) registry at the corporate or local level. Modules are
+      defined by registries, and detail is defined by module. It is
+      <emphasis>never</emphasis> acceptable to look at detail unless you
+      recognize the module. (OK, you can print it out for debugging.) Severity
+      = 3 bits, registry = 13 bits, module = 6 bits, detail = 10 bits.</para>
+
+      <para>Any severity where the top bit is zero is considered "OK", and the
+      rest of the word is available to encode a non-negative integer.</para>
+
+      <para>Status codes are represented as structures to ensure type safety.
+      Occassionally you might want to convert a status to or from a long
+      int:</para>
+
+      <programlisting>int      EP_STAT_TO_INT(EP_STAT stat)          // convert status to unsigned int
+EP_STAT  EP_STAT_FROM_INT(unsigned int istat)  // convert unsigned integer to status</programlisting>
+
+      <para>The constituent parts of the status code can also be
+      extracted:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><function>EP_STAT_SEV</function>(st)</term>
+
+          <listitem>
+            <para>Returns the severity part of the status code.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_REGISTRY</function>(st)</term>
+
+          <listitem>
+            <para>Returns the registry part of the status code.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_MODULE</function>(st)</term>
+
+          <listitem>
+            <para>Returns the module part of the status code.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><function>EP_STAT_DETAIL</function>(st)</term>
+
+          <listitem>
+            <para>Returns the detail part of the status code.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>To compare two statuses for equality, use
+      <function>EP_STAT_IS_SAME</function>(a, b).</para>
+
+      <para>As a special case, if the severity is
+      <errortype>EP_STAT_SEV_OK</errortype> the rest of the word is ignored;
+      this can be used to pass small integers (no more than 31 bits) of
+      information.</para>
+    </section>
+
+    <section>
+      <title>Predefined Status Codes</title>
+
+      <para>All status codes from this library are in the
+      <constant>EP_REGISTRY_EPLIB</constant> registery. There are several
+      predefined status codes for generic use, all using module
+      <constant>EP_STAT_MOD_GENERIC</constant>:</para>
+
+      <informaltable border="1">
+        <col width="4*"/>
+
+        <col width="6*"/>
+
+        <tr>
+          <td>EP_STAT_OK</td>
+
+          <td>No error (also integer 0)</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_WARN</td>
+
+          <td>Generic warning status</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_ERROR</td>
+
+          <td>Generic error status</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_SEVERE</td>
+
+          <td>Generic severe error status</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_ABORT</td>
+
+          <td>Generic abortive status</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_OUT_OF_MEMORY</td>
+
+          <td>Out of memory</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_ARG_OUT_OF_RANGE</td>
+
+          <td>An argument was out of range</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_END_OF_FILE</td>
+
+          <td>End of input</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_TIME_BADFORMAT</td>
+
+          <td>Couldn't parse a date/time string</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_BUF_OVERFLOW</td>
+
+          <td>Buffer overflow averted</td>
+        </tr>
+
+        <tr>
+          <td>EP_STAT_ASSERT_ABORT</td>
+
+          <td>Assertion failiure: backout now!</td>
+        </tr>
+      </informaltable>
+
+      <para>There is also a special module
+      <constant>EP_STAT_MOD_ERRNO</constant> that encodes Posix-style errnos
+      (i.e., use <function>EP_STAT_DETAIL</function> on codes returned by that
+      module to get the Posix errno code).</para>
+    </section>
+
+    <section>
+      <title>Manipulating Status Codes</title>
+
+      <para>There are several routines to print error codes or create them on
+      the fly. Note that <function>ep_stat_tostr</function> returns the buffer
+      itself.</para>
+
+      <programlisting>// create status code from UNIX errno
+extern EP_STAT  ep_stat_from_errno(
+                        int uerrno);
+
+// return string representation of status
+char            *ep_stat_tostr(
+                        EP_STAT estat,
+                        char *buf,
+                        size_t bsize);
+
+// return string representation of severity (in natural language)
+const char      *ep_stat_sev_tostr(
+                        int sev);
+
+// print a status code and abort (never returns)
+void            ep_stat_abort(
+                        EP_STAT estat);</programlisting>
+    </section>
+
+    <section>
+      <title>Creating New Status Codes</title>
+
+      <para>Libraries and applications can create their own specific error
+      codes. There are four steps to do this:</para>
+
+      <orderedlist>
+        <listitem>
+          <para>Determine the registry. The registry name space is divided as
+          follows:</para>
+
+          <informaltable border="1">
+            <col width="4*"/>
+
+            <col width="6*"/>
+
+            <tr>
+              <td>0x000 (<constant>EP_REGISTRY_GENERIC</constant>)</td>
+
+              <td>reserved for generic status codes</td>
+            </tr>
+
+            <tr>
+              <td>0x001 (<constant>EP_REGISTRY_USER</constant>)</td>
+
+              <td>available for internal use to an application</td>
+            </tr>
+
+            <tr>
+              <td>0x002&ndash;0x07F</td>
+
+              <td>available for local, unregistered use, such as separate
+              applications within an application suite</td>
+            </tr>
+
+            <tr>
+              <td>0x080&ndash;0x0FF</td>
+
+              <td>available for internal corporate registry, but not
+              registered globally; conflicts may occur between organizations
+              but not within an organization</td>
+            </tr>
+
+            <tr>
+              <td>0x100 (<constant>EP_REGISTRY_EPLIB</constant>)</td>
+
+              <td>reserved for libep</td>
+            </tr>
+
+            <tr>
+              <td>0x101&ndash;0x6FF</td>
+
+              <td>available for centrally managed global registry &mdash;
+              contact the libep maintainers for an allocation</td>
+            </tr>
+
+            <tr>
+              <td>0x700&ndash;0x7FF</td>
+
+              <td>reserved</td>
+            </tr>
+          </informaltable>
+        </listitem>
+
+        <listitem>
+          <para>Determine the module(s) in which the error code should exist.
+          These must be unique within a registry and in the range
+          0x00&ndash;0xFF.</para>
+        </listitem>
+
+        <listitem>
+          <para>Define the error codes you want to use using
+          <function>EP_STAT_NEW</function>, e.g.,</para>
+
+          <programlisting>#define FOO_STAT_ELEPHANT    EP_STAT_NEW(ERROR, EP_REGISTRY_FOO, MOD_BAR, 1)
+#define FOO_STAT_GIRAFFE     EP_STAT_NEW(SEVERE, EP_REGISTRY_FOO, MOD_BAR, 2)</programlisting>
+        </listitem>
+
+        <listitem>
+          <para>(Optional step) Define the strings associated with the error
+          codes when they are printed. These are done by populating a table
+          and then calling <function>ep_stat_register_strings</function>. For
+          example:</para>
+
+          <programlisting>struct ep_stat_reg_strings  FooStatusCodes[] =
+{
+    FOO_STAT_ELEPHANT,    "elephant in the room",        },
+    FOO_STAT_GIRAFFE,     "too tall",                    },
+    EP_STAT_OK,           NULL,                          }
+}
+
+ep_stat_reg_strings(FooStatusCodes);</programlisting>
+        </listitem>
+      </orderedlist>
+    </section>
+  </section>
+
+  <section>
+    <title>INITIALIZATION</title>
+
+    <para>Although libep will generally work without initialization, in some
+    cases you may need to give it information about your usage. To do this
+    call <function>ep_lib_init</function>:</para>
+
+    <programlisting>#include &lt;ep/ep.h&gt;
+
+EP_STAT
+ep_lib_init(uint32_t flags)</programlisting>
+
+    <para>Flags can be:</para>
+
+    <informaltable>
+      <tgroup cols="2">
+        <tbody>
+          <row>
+            <entry>EP_LIB_USEPTHREADS</entry>
+
+            <entry>Initialize the thread support</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </informaltable>
+  </section>
+
+  <section>
+    <title>MEMORY ALLOCATION AND RESOURCE POOLS</title>
+
+    <section>
+      <title>Memory</title>
+
+      <para>Memory support is much like malloc/free, but with some additional
+      functionality. One crucial difference is that most of these routines do
+      not return if memory is exhausted; instead they can call a cleanup
+      routine that might (for example) eliminate some old cache entries, or
+      pick a "victim" thread to kill and reclaim its memory. If successful
+      they can continue, otherwise the process is aborted.</para>
+
+      <programlisting>    #include &lt;ep/ep_mem.h&gt;
+
+    void *
+    ep_mem_malloc(size_t nbytes)       // allocate uninitialized memory
+
+    void *
+    ep_mem_zalloc(size_t nbytes)       // allocate zeroed memory
+
+    void *
+    ep_mem_ralloc(size_t nbytes)       // allocate randomized memory
+
+    void *
+    ep_mem_ealloc(size_t nbytes)       // allocate memory, failure OK
+
+    void *
+    ep_mem_realloc(size_t nbytes,      // reallocate (extend) memory
+                void *curmem)
+
+    void *
+    ep_mem_falloc(size_t nbytes,       // allocate memory (see flags)
+                uint32_t flags)
+
+    void
+    ep_mem_mfree(void *mem)            // free indicated memory
+
+    struct ep_malloc_functions
+    {
+        void    *(*m_malloc)(size_t);
+        void    *(*m_realloc)(void*, size_t);
+        void    *(*m_valloc)(size_t);
+        void    (*m_free)(void*);
+    };
+
+    void
+    ep_mem_set_malloc_functions(       // set underlying malloc functions
+                struct ep_malloc_functions *funcs)</programlisting>
+
+      <para>The <function>ep_mem_malloc</function>,
+      <function>ep_mem_zalloc</function>, <function>ep_mem_ralloc</function>,
+      and <function>ep_mem_realloc</function> are all implemented in terms of
+      <function>ep_mem_falloc</function>, which uses flags to tune the
+      behavior (see below). The primary interface is
+      <function>ep_mem_malloc</function>, which returns uninitialized data;
+      <function>ep_mem_zalloc</function> returns zeroed memory, and
+      <function>ep_mem_ralloc</function> returns memory that is initialized to
+      random or some other nonsensical data. The last would probably be used
+      only for debugging, and can be turned on at runtime using a debug flag
+      <remark>XXX TBD</remark>.</para>
+
+      <para>In all allocation schemes, the function returns a pointer to the
+      allocated data &mdash; they cannot normally return
+      <constant>NULL</constant> (but see below). If they cannot allocate the
+      memory, they <remark>do error recovery (XXX describe)</remark>. If
+      recovery fails, the allocation system will abort the process. However,
+      <function>ep_mem_ealloc</function> can return <constant>NULL</constant>
+      on memory allocation failure, as can <function>ep_mem_falloc</function>
+      if the <constant>EP_MEM_F_FAILOK</constant> flag bit is set (see
+      below).</para>
+
+      <para>Flag bits are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>EP_MEM_F_FAILOK</constant></term>
+
+          <listitem>
+            <para>Permits the routine to return <constant>NULL</constant> on
+            failure. This modifies the behavior described above. Note that if
+            this is set every call to the <function>ep_*malloc</function>
+            routines may potentially fail.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>EP_MEM_F_ZERO</constant></term>
+
+          <listitem>
+            <para>Zero any returned memory.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>EP_MEM_F_TRASH</constant></term>
+
+          <listitem>
+            <para>Randomize any returned memory.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>EP_MEM_F_ALIGN</constant></term>
+
+          <listitem>
+            <para>The application would prefer that the allocation is
+            page-aligned. This is not available on all architectures, and
+            other architectures do it automatically if the allocation is at
+            least as large as a page.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>EP_MEM_F_WAIT</constant></term>
+
+          <listitem>
+            <para>If memory is unavailable, try to wait for it to become
+            available (e.g., because another thread has released memory).
+            <remark>This is not yet implemented.</remark></para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>Specifying <constant>EP_MEM_F_ZERO</constant> and
+      <constant>EP_MEM_F_TRASH</constant> at the same time is
+      undefined.</para>
+
+      <para>Since <function>ep_mem_[mzr]alloc</function> are implemented as
+      macros, they can't be used as pointers to functions (e.g., for
+      specifying a memory allocator callback to a third party app). For this
+      reason, there are also <function>ep_mem_[mzr]alloc_f</function> "real"
+      functions to be used in this context.</para>
+
+      <para>Generally, unthreaded code and most application code will probably
+      be happy with the defaults. Threaded server code (which cannot be
+      permitted to die) is expected to catch the out of memory condition, do
+      some recovery operation such as terminating a task, and return
+      <errorcode>EP_MEM_STAT_TRYAGAIN</errorcode> so the memory allocation can
+      retry.</para>
+
+      <para>[[[XXX Document ep_set_malloc_functions XXX]]]</para>
+    </section>
+
+    <section>
+      <title>Resource Pools</title>
+
+      <para>Resources are allocatable global entities such as memory, file
+      descriptors, etc. Resources can be collected together into pools and
+      then freed in one call. Memory is specially handled to allow fast
+      allocation from a pool --- specifically, a chunk of memory can be
+      allocated from the heap to a pool and then sub-allocated as needed.
+      Allocating memory from resource pools is particularly fast for small
+      allocations. Also, pool allocations that are of a size that is a
+      multiple of the page size are guaranteed to return a page-aligned
+      pointer. This is particularly useful to allow the I/O level to implement
+      zero-copy I/O.</para>
+
+      <para>The heap used is the one that is current when
+      <function>ep_rpool_new</function> is invoked.</para>
+
+      <programlisting>    #include &lt;ep/ep_mem.h&gt;
+
+    EP_RPOOL *
+    ep_rpool_new(const char *name,              // for debugging
+                size_t qsize)                   // min memory allocation quantum
+
+    EP_STAT
+    ep_rpool_free(EP_RPOOL *rp)                 // free pool and all resources
+
+    void *
+    ep_rpool_malloc(EP_RPOOL *rp,               // the pool to allocate from
+                size_t nbytes)                  // number of bytes
+
+    void *
+    ep_rpool_zalloc(EP_RPOOL *rp,               // the pool to allocate from
+                size_t nbytes)                  // number of bytes
+
+    void *
+    ep_rpool_xalloc(EP_RPOOL *rp,               // the pool to allocate from
+                size_t nbytes,                  // number of bytes
+                const char *filename,           // file name (for debugging)
+                int lineno,                     // line number (for debugging)
+                uint32_t flags)                 // flag bits (see below)
+
+    void *
+    ep_rpool_strdup(EP_RPOOL *rp,               // the pool to allocate from
+                char *str)                      // the string to save
+
+    void *
+    ep_rpool_realloc(EP_RPOOL *rp,              // pool to allocate from
+                void *old mem,                  // old memory pointer
+                size_t oldsize,                 // old allocation size
+                size_t newsize)                 // new allocation size
+
+    void
+    ep_rpool_mfree(EP_RPOOL *rp,                // the pool to release to
+                void *p);                       // the memory
+
+    void
+    ep_rpool_mfreeto(EP_RPOOL *rp,              // the pool to release to
+                void *p);                       // restore up the pool to here
+
+    EP_STAT
+    ep_rpool_attach(EP_RPOOL *rp,               // the resource pool
+                void freefunc(void *arg),       // a function to call on free
+                void *arg)                      // argument to pass to it</programlisting>
+
+      <para>The <function>ep_rpool_mfreeto</function>() routine lets you treat
+      rpool memory like a stack; this call releases everything allocated back
+      to (and including) the pointer given. If <computeroutput>p ==
+      NULL</computeroutput>, the entire memory contents of the rpool are
+      freed, but the rpool itself is still active. Deep care needs to be taken
+      here: if a subordinate routine is called that allocates memory from the
+      rpool, you may end up deallocating memory that is still in use.
+      <remark>Not implemented at this time.</remark></para>
+
+      <para>The <function>ep_rpool_attach</function>() routine is used to
+      associate other resources (such as files) with a pool. The corresponding
+      free functions will be invoked when the pool is freed.</para>
+
+      <para>In most cases, passing in <parameter>rp</parameter> ==
+      <constant>NULL</constant> treats the call like the corresponding heap
+      allocation. In this case the caller is responsible for freeing the
+      memory. For example,
+      <function>ep_rpool_malloc</function>(<constant>NULL</constant>,
+      <varname>nbytes</varname>) is equivalent to
+      <function>ep_mem_malloc</function>(<varname>nbytes</varname>).</para>
+
+      <para>The distinction between multiple heaps and resource pools are that
+      heaps are not intended for application use other than for doing recovery
+      for out-of-memory conditions. Pools are intended for general use. Pools
+      are fast at allocation time (since they just grab space from the end of
+      the pool) and fast at free time (since the entire pool can be
+      deallocated at once); heaps are comparatively slow.</para>
+
+      <para>When any memory collections (heaps or pools) are freed, all
+      objects allocated from that collection are freed (i.e., their
+      destructors are automatically invoked).</para>
+    </section>
+
+    <section>
+      <title>Opening Memory as a File</title>
+
+      <programlisting>    FILE *
+    ep_fopen_smem(void *buf,          // block of memory to open
+        size_t bsize,                 // size of that memory
+        const char *mode)             // fopen(3) mode string</programlisting>
+    </section>
+  </section>
+
+  <section>
+    <title>TIME</title>
+
+    <para>The ep library has a separate time abstraction. This is for two
+    reasons: first, it guarantees that the number of seconds since January 1,
+    1970 will be sufficiently long to last past 2038 (this varies from system
+    to system), and it includes a "<structfield>tv_accuracy</structfield>"
+    (type float) to indicate the approximate accuracy of the clock relative to
+    absolute time. For example, a clock synchronized from a GPS clock might be
+    accurate within perhaps 100nsec, whereas a standard crystal clock
+    synchronized once a day might only have an accuracy of a few
+    seconds.</para>
+
+    <programlisting>#include &lt;ep/ep_time.h&gt;
+
+typedef struct
+{
+        int64_t     tv_sec;          // seconds since Jan 1, 1970
+        int32_t     tv_nsec;         // nanoseconds
+        float       tv_accuracy;     // clock accuracy in seconds
+} EP_TIME_SPEC;
+
+#define EP_TIME_NOTIME      (-INT64_MAX)
+#define EP_TIME_MAXTIME     (INT64_MAX)
+
+EP_STAT
+ep_time_now(                         // return current time
+        EP_TIME_SPEC *tv);
+
+EP_STAT
+ep_time_deltanow(                    // return time in the future (or past)
+        uint64_t delta_nanoseconds,
+        EP_TIME_SPEC *tv);
+
+void
+ep_time_add_delta(                   // add a delta to a time (delta may be negative)
+        EP_TIME_SPEC *delta,
+        EP_TIME_SPEC *tv);
+
+bool
+ep_time_before(                      // determine if A occurred before B
+        EP_TIME_SPEC *a,
+        EP_TIME_SPEC *b);
+
+void
+ep_time_from_nsec(                   // create a time from a scalar number of nanoseconds
+        int64_t nsec,
+        EP_TIME_SPEC *tv);
+
+void
+ep_time_from_sec(                    // create a time from a scalar number of seconds
+        int64_t sec,
+        EP_TIME_SPEC *tv);
+
+float
+ep_time_accuracy(void);              // return putative clock accuracy
+
+void
+ep_time_setaccuracy(                 // set the clock accuracy (may not be available)
+        float accuracy);
+
+void
+ep_time_format(                      // format a time string into a buffer
+        EP_TIME_SPEC *tv,
+        char *buf,
+        size_t bufsize,
+        uint32_t flags);
+
+void
+ep_time_print(                       // format a time string to a file
+        EP_TIME_SPEC *tv,
+        FILE *fp,
+        uint32_t flags);
+
+// values for ep_time_format and ep_time_print flags
+#define EP_TIME_FMT_DEFAULT     0               // pseudo-flag
+#define EP_TIME_FMT_HUMAN       0x00000001      // format for humans
+#define EP_TIME_FMT_NOFUZZ      0x00000002      // suppress accuracy printing
+
+EP_STAT
+ep_time_parse(                       // parse a time string
+        const char *timestr,
+        EP_TIME_SPEC *tv,
+        uint32_t flags);
+
+// values for ep_time_parse flags
+#define EP_TIME_USE_UTC         0x00000000      // assume UTC (default)
+#define EP_TIME_USE_LOCALTIME   0x00000001      // assume times in local zone
+
+EP_STAT
+ep_time_nanosleep(                   // sleep for the indicated number of nanoseconds
+        int64_t nanoseconds);
+
+bool
+EP_TIME_IS_VALID(                    // test to see if a timestamp is valid
+        EP_TIME_SPEC *tv);
+
+void
+EP_TIME_INVALIDATE(                  // invalidate a timestamp
+        EP_TIME_SPEC *tv);</programlisting>
+
+    <para>"Human" formatted times are intended to be human readable, and may
+    use non-ASCII characters. Otherwise the format is intended to be machine
+    readable, e.g., using <function>ep_time_parse</function>.</para>
+  </section>
+
+  <section>
+    <title>DATA STRUCTURES</title>
+
+    <section>
+      <title>Property Lists</title>
+
+      <para><remark>Not implemented at this time.</remark> A series of
+      key=value pairs. Used for many things, including configuration files.
+      For example, looking in the "configuration" property list for
+      "<varname>mailer.local.timeout.connect</varname>" would return the
+      connect timeout for the local mailer. <remark>[[How does this deal with
+      nested defaults &mdash; e.g., looking for timeout.connect if the full
+      path cannot be found?]]</remark></para>
+
+      <programlisting>    EP_PLIST *
+    ep_plist_new(
+                const char *name)              // for printing
+
+    EP_STAT
+    ep_plist_load(
+                EP_PLIST *plp,                 // the list to read into
+                FILE *sp,                      // the stream to load from
+                const char *prefix)            // prefix added to all properties
+
+    EP_STAT
+    ep_plist_set(
+                EP_PLIST *plp,                 // the plist in which to set
+                const char *keyname,           // the name of the key to set
+                const char *value)             // the value to set (will be copied)
+
+    const char *
+    ep_plist_get(
+                EP_PLIST *plp,                 // the plist to search
+                const char *keyname)           // the name of the key to get
+
+    void
+    ep_plist_dump(
+                EP_PLIST *plp,                 // plist to print
+                FILE *sp)                      // stream to print to
+
+    void
+    ep_plist_free(
+                EP_PLIST *plp)                 // plist to free</programlisting>
+
+      <para>A property list can be loaded from an external stream using
+      <function>ep_plist_load</function>. The syntax of the file is a simple
+      text file with "key=value" pairs on separate lines, with blank lines and
+      those with # at the beginning of the line ignored. The values are
+      strictly strings. <remark>[[Does it make sense to type
+      them?]]</remark></para>
+
+      <para><remark>[[Note the overlap between plists and the
+      <function>ep_adm</function> interface. Does this make
+      sense?]]</remark></para>
+
+      <para>Property lists can be printed using
+      <function>ep_plist_dump</function>. The output format will be readable
+      by <function>ep_plist_load</function>. For the time being,
+      <varname>flags</varname> should always be <constant>0</constant>.</para>
+
+      <warning>
+        <para>The property list is not guaranteed to be dumped in the same
+        order items are inserted.</para>
+      </warning>
+    </section>
+
+    <section>
+      <title>Hashes</title>
+
+      <programlisting>    #include &lt;ep/ep_hash.h&gt;
+
+    EP_HASH *
+    ep_hash_new(
+                const char *name,               // for printing
+                EP_HASH_HASH_FUNCP *hfunc,      // alternate hash function
+                int tabsize)                    // hash table function size
+
+    void
+    ep_hash_free(
+                EP_HASH *hp)                    // hash to free
+
+    void *
+    ep_hash_search(
+                const EP_HASH *hp,              // hash to search
+                size_t keylen,                  // length of key
+                const void *key)                // pointer to key
+
+    void *
+    ep_hash_insert(                     // returns old value for key
+                EP_HASH *hp,                    // hash to modify
+                size_t keylen,                  // length of key
+                const void *key,                // pointer to key
+                void *val)                      // value to insert
+
+    ep_hash_forall(EP_HASH *hp,                 // hash to walk
+                void (func)(                    // function to call
+                        int keylen,                // key length
+                        const void *key,           // key value
+                        void *val,                 // value
+                        void *closure),            // from caller
+                void *closure)                  // passed to func
+
+    ep_hash_dump(EP_TREE *tree,                 // tree to dump
+                FILE *sp)                       // stream to print on</programlisting>
+
+      <para><remark>[[Should <function>ep_hash_dump</function> take the same
+      parameters as the usual object print routine? For that matter, should
+      there be a separate <function>ep_hash_dump</function> routine, or should
+      it just be a generic <function>ep_obj_dump</function>? Note that
+      <function>ep_hash_dump</function> is not implemented at this time, but
+      an internal (object-based) dump is.]]</remark></para>
+    </section>
+
+    <section>
+      <title>Function Lists</title>
+
+      <programlisting>    #include &lt;ep/ep_funclist.h&gt;
+
+    EP_FUNCLIST *
+    ep_funclist_new(
+                const char *name)       // name for printing/debugging
+
+    void
+    ep_funclist_free(EP_FUNCLIST *fp)   // list to free
+
+    void
+    ep_funclist_push(EP_FUNCLIST *fp,   // list to push to
+                void (*func)(           // the function to invoke
+                        void *closure,  // from the ep_funclist_push call
+                        void *arg),     // from the ep_funclist_invoke call
+                void *closure)          // the closure arg to pass to it
+
+    void
+    ep_funclist_pop(EP_FUNCLIST *fp)    // list to pop from, value discarded
+
+    void
+    ep_funclist_clear(EP_FUNCLIST *fp)  // list to clear
+
+    void
+    ep_funclist_invoke(EP_FUNCLIST *fp, // invoke all functions in list
+                void *arg)              // second func arg</programlisting>
+    </section>
+  </section>
+
+  <section>
+    <title>CRYPTOGRAPHIC SUPPORT</title>
+
+    <para>The current implementation wraps the OpenSSL library, but it could
+    be retargeted.</para>
+
+    <para>Before any cryptographic functions can be used, the library must be
+    initialized:</para>
+
+    <programlisting>void         ep_crypto_init(uint32_t flags)</programlisting>
+
+    <para>At the moment flags is unused (just pass zero). There are also
+    several general purpose definitions, useful for declaring buffers without
+    memory allocation:</para>
+
+    <informaltable border="1">
+      <col width="4*"/>
+
+      <col width="6*"/>
+
+      <tr>
+        <td><constant>EP_CRYPTO_MAX_PUB_KEY</constant></td>
+
+        <td>Maximum length of a public key</td>
+      </tr>
+
+      <tr>
+        <td><constant>EP_CRYPTO_MAX_SEC_KEY</constant></td>
+
+        <td>Maximum length of a secret key</td>
+      </tr>
+
+      <tr>
+        <td><constant>EP_CRYPTO_MAX_DIGEST</constant></td>
+
+        <td>Maximum length of a message digest</td>
+      </tr>
+
+      <tr>
+        <td><constant>EP_CRYPTO_MAX_DER</constant></td>
+
+        <td>Maximum length of a DER-encoded key</td>
+      </tr>
+    </informaltable>
+
+    <section>
+      <title>Key Management</title>
+
+      <para>Internally all keys are represented as <type>EP_CRYPTO_KEY</type>
+      variables, defined in <filename>ep_crypto.h</filename>. External
+      representations for keys may be either PEM (Privacy Enhanced Mail,
+      represented as text) or DER (Distinguished Encoding Rules, represented
+      in binary). PEM self identifies the type of key, but DER does not, so in
+      some cases the key type needs to be pre-arranged.</para>
+
+      <programlisting>// on-disk key formats
+# define EP_CRYPTO_KEYFORM_UNKNOWN      0       // error
+# define EP_CRYPTO_KEYFORM_PEM          1       // PEM (ASCII-encoded text)
+# define EP_CRYPTO_KEYFORM_DER          2       // DER (binary ASN.1)</programlisting>
+
+      <para>Internally, algorithms (e.g., for keys and hash/digest functions)
+      are represented by a scalar value. Keys also have to be identified as
+      public or secret.</para>
+
+      <remark>[[Note: DH is not supported at this time.]]</remark>
+
+      <programlisting>// key types
+# define EP_CRYPTO_KEYTYPE_UNKNOWN      0       // error
+# define EP_CRYPTO_KEYTYPE_RSA          1       // RSA
+# define EP_CRYPTO_KEYTYPE_DSA          2       // DSA
+# define EP_CRYPTO_KEYTYPE_EC           3       // Elliptic curve
+# define EP_CRYPTO_KEYTYPE_DH           4       // Diffie-Hellman
+
+// flag bits
+# define EP_CRYPTO_F_PUBLIC             0x0000  // public key (no flags set)
+# define EP_CRYPTO_F_SECRET             0x0001  // secret key</programlisting>
+
+      <para>Keys are represented as an <type>EP_CRYPTO_KEY</type>. New keys
+      can be created by giving the type of the key desired, the length of the
+      key in bits, and two other values that are interpreted by the key type.
+      The first is primarily for RSA and gives the exponent, and the second is
+      primarily for EC and gives the curve name.</para>
+
+      <programlisting>EP_CRYPTO_KEY           *ep_crypto_key_create(
+                                int keytype,
+                                int keylen,
+                                int keyexp,
+                                const char *curve);</programlisting>
+
+      <para>Keys can be read from or written to named files, open files, or
+      memory. All the read routines create and return a new key data
+      structure. If the <varname>keyform</varname> is
+      <constant>EP_CRYPTO_KEYFORM_PEM</constant> then the
+      <varname>keytype</varname> need not be specified.</para>
+
+      <programlisting>EP_CRYPTO_KEY           *ep_crypto_key_read_file(
+                                const char *filename,
+                                int keyform,
+                                uint32_t flags);
+EP_CRYPTO_KEY           *ep_crypto_key_read_fp(
+                                FILE *fp,
+                                const char *filename,
+                                int keyform,
+                                uint32_t flags);
+EP_CRYPTO_KEY           *ep_crypto_key_read_mem(
+                                const void *buf,
+                                size_t buflen,
+                                int keyform,
+                                uint32_t flags);
+EP_STAT                 ep_crypto_key_write_file(
+                                EP_CRYPTO_KEY *key,
+                                const char *filename,
+                                int keyform,
+                                int cipher,
+                                uint32_t flags);
+EP_STAT                 ep_crypto_key_write_fp(
+                                EP_CRYPTO_KEY *key,
+                                FILE *fp,
+                                int keyform,
+                                int cipher,
+                                uint32_t flags);
+EP_STAT                 ep_crypto_key_write_mem(
+                                EP_CRYPTO_KEY *key,
+                                void *buf,
+                                size_t bufsize,
+                                int keyform,
+                                int cipher,
+                                uint32_t flags);</programlisting>
+
+      <para>When finished with a key it must be freed.</para>
+
+      <programlisting>void                    ep_crypto_key_free(
+                                EP_CRYPTO_KEY *key);</programlisting>
+
+      <para>There are also some utility routines. A public and a secret key
+      can be compared to see if they match each other (same algorithm,
+      keysize, etc.) using <function>ep_crypto_key_compat</function>. Various
+      conversions are also included:
+      <function>ep_crypto_keyform_byname</function> converts a text string
+      (e.g., "pem") to an internal code,
+      <function>ep_crypto_keytype_fromkey</function> returns the type of a
+      key, and <function>ep_crypto_keytype_byname</function> converts a text
+      string to a type.</para>
+
+      <programlisting>EP_STAT                 ep_crypto_key_compat(
+                                const EP_CRYPTO_KEY *pubkey,
+                                const EP_CRYPTO_KEY *seckey);
+int                     ep_crypto_keyform_byname(
+                                const char *fmt);
+int                     ep_crypto_keytype_fromkey(
+                                EP_CRYPTO_KEY *key);
+int                     ep_crypto_keytype_byname(
+                                const char *alg_name);</programlisting>
+    </section>
+
+    <section>
+      <title>Message Digests (Hashes)</title>
+
+      <para>Several message digest (cryptographic hash) algorithms are
+      supported. Text can be converted to one of these values, and the
+      algorithm type can be extracted from the internal form.</para>
+
+      <programlisting>// digest algorithms (no more than 4 bits)
+# define EP_CRYPTO_MD_NULL      0
+# define EP_CRYPTO_MD_SHA1      1
+# define EP_CRYPTO_MD_SHA224    2
+# define EP_CRYPTO_MD_SHA256    3
+# define EP_CRYPTO_MD_SHA384    4
+# define EP_CRYPTO_MD_SHA512    5
+
+int                     ep_crypto_md_alg_byname(
+                                const char *algname);
+int                     ep_crypto_md_type(
+                                EP_CRYPTO_MD *md);</programlisting>
+
+      <para>Digests (type <type>EP_CRYPTO_MD</type>) can be created, freed,
+      and cloned. Cloning lets an application compute the a fixed part of a
+      digest (perhaps an unchanging header) and then produce separate digests
+      for individual records.</para>
+
+      <programlisting>EP_CRYPTO_MD            *ep_crypto_md_new(
+                                int md_alg_id);
+EP_CRYPTO_MD            *ep_crypto_md_clone(
+                                EP_CRYPTO_MD *base_md);
+void                    ep_crypto_md_free(
+                                EP_CRYPTO_MD *md);</programlisting>
+
+      <para>The typical lifetime of a digest is to be created (as above),
+      updated with additional data, possibly multiple times, and then
+      finalized to give the output hash.</para>
+
+      <programlisting>EP_STAT                 ep_crypto_md_update(
+                                EP_CRYPTO_MD *md,
+                                void *data,
+                                size_t dsize);
+EP_STAT                 ep_crypto_md_final(
+                                EP_CRYPTO_MD *md,
+                                void *dbuf,
+                                size_t *dbufsize);</programlisting>
+    </section>
+
+    <section>
+      <title>Signing and Verification</title>
+
+      <para>Signing and verification are quite similar. A new internal
+      structure is created, using the same type as a message digest, data is
+      added to the existing hash, possibly multiple times, the signature is
+      created or verified, and finally the structure is freed.</para>
+
+      <programlisting># define EP_CRYPTO_MAX_SIG      (1024 * 8)
+
+EP_CRYPTO_MD            *ep_crypto_sign_new(
+                                EP_CRYPTO_KEY *skey,
+                                int md_alg_id);
+void                    ep_crypto_sign_free(
+                                EP_CRYPTO_MD *md);
+EP_STAT                 ep_crypto_sign_update(
+                                EP_CRYPTO_MD *md,
+                                void *dbuf,
+                                size_t dbufsize);
+EP_STAT                 ep_crypto_sign_final(
+                                EP_CRYPTO_MD *md,
+                                void *sbuf,
+                                size_t *sbufsize);
+
+EP_CRYPTO_MD            *ep_crypto_vrfy_new(
+                                EP_CRYPTO_KEY *pkey,
+                                int md_alg_id);
+void                    ep_crypto_vrfy_free(
+                                EP_CRYPTO_MD *md);
+EP_STAT                 ep_crypto_vrfy_update(
+                                EP_CRYPTO_MD *md,
+                                void *dbuf,
+                                size_t dbufsize);
+EP_STAT                 ep_crypto_vrfy_final(
+                                EP_CRYPTO_MD *md,
+                                void *obuf,
+                                size_t obufsize);</programlisting>
+    </section>
+
+    <section>
+      <title>Encryption and Decryption (Asymmetric)</title>
+
+      <para>To be supplied.</para>
+    </section>
+
+    <section>
+      <title>Encryption and Decryption (Symmetric Ciphers)</title>
+
+      <para>Symmetric Ciphers are driven by a Chaining Mode (how subsequent
+      blocks have the key modified to prevent replay and brute force attacks)
+      and the actual cipher itself. The chaining modes are:</para>
+
+      <informaltable border="1">
+        <col width="4*"/>
+
+        <col width="6*"/>
+
+        <tr>
+          <td width=""><constant>EP_CRYPTO_MODE_CBC</constant></td>
+
+          <td>Cipher Block Chaining</td>
+        </tr>
+
+        <tr>
+          <td width=""><constant>EP_CRYPTO_MODE_CFB</constant></td>
+
+          <td>Cipher Feedback mode</td>
+        </tr>
+
+        <tr>
+          <td width=""><constant>EP_CRYPTO_MODE_OFB</constant></td>
+
+          <td>Output Feedback mode</td>
+        </tr>
+      </informaltable>
+
+      <para>The various cipher algorithms (which is equivalent to the key
+      type) are:</para>
+
+      <informaltable border="1">
+        <col width="4*"/>
+
+        <col width="6*"/>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_NONE</constant></td>
+
+          <td>Error/unencrypted</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_AES128</constant></td>
+
+          <td>Advanced Encr Std, 128-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_AES192</constant></td>
+
+          <td>Advanced Encr Std, 192-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_AES256</constant></td>
+
+          <td>Advanced Encr Std, 256-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_CAMELLIA128</constant></td>
+
+          <td>Camellia, 128-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_CAMELLIA192</constant></td>
+
+          <td>Camellia, 192-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_CAMELLIA256</constant></td>
+
+          <td>Camellia, 256-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_DES</constant></td>
+
+          <td>Data Encryption Standard, single, 56-bit key</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_3DES</constant></td>
+
+          <td>Data Encryption Standard, triple, 128-bit key (112-bit
+          effective)</td>
+        </tr>
+
+        <tr>
+          <td><constant>EP_CRYPTO_SYMKEY_IDEA</constant></td>
+
+          <td>International Data Encryption Alg, 128-bit key</td>
+        </tr>
+      </informaltable>
+
+      <para>One value from each table are "or"ed together to specify a full
+      symmetric cipher. The rest of the interface is as follows:</para>
+
+      <programlisting>/*
+**      The cipher is set to encrypt or decrypt when the context
+**      is created.
+**
+**      ep_crypto_cipher_crypt is just shorthand for a single
+**      call to ep_crypto_cipher_update followed by a single
+**      call to ep_crypto_cipher_final.  Final pads out any
+**      remaining block and returns that data.
+*/
+
+EP_CRYPTO_CIPHER_CTX    *ep_crypto_cipher_new(
+                                uint32_t ciphertype,    // mode + keytype &amp; len
+                                uint8_t *key,           // the key
+                                uint8_t *iv,            // initialization vector
+                                bool enc);              // true =&gt; encrypt
+void                    ep_crypto_cipher_free(
+                                EP_CRYPTO_CIPHER_CTX *cipher);
+
+EP_STAT                 ep_crypto_cipher_crypt(
+                                EP_CRYPTO_CIPHER_CTX *cipher,
+                                void *in,               // input data
+                                size_t inlen,           // input length
+                                void *out,              // output buffer
+                                size_t outlen);         // output buf size
+EP_STAT                 ep_crypto_cipher_update(
+                                EP_CRYPTO_CIPHER_CTX *cipher,
+                                void *in,               // input data
+                                size_t inlen,           // input length
+                                void *out,              // output buffer
+                                size_t outlen);         // output buf size
+EP_STAT                 ep_crypto_cipher_final(
+                                EP_CRYPTO_CIPHER_CTX *cipher,
+                                void *out,              // output buffer
+                                size_t outlen);         // output buf size</programlisting>
+    </section>
+
+    <section>
+      <title>Cryptography-specific Error Codes</title>
+
+      <para>There are several status codes that may be returned from the
+      cryptography routines. These are all in module
+      EP_STAT_MOD_CRYPTO.</para>
+
+      <informaltable border="1">
+        <col width="4*"/>
+
+        <col width="6*"/>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_DIGEST</errorcode></td>
+
+          <td>Failed to update or finalize a digest (hash)</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_SIGN</errorcode></td>
+
+          <td>Failed to update or finalize a digest for signing</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_VRFY</errorcode></td>
+
+          <td>Failed to update or finalize a digest for verification</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_BADSIG</errorcode></td>
+
+          <td>Signature did not match</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_KEYTYPE</errorcode></td>
+
+          <td>Unknown key type</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_KEYFORM</errorcode></td>
+
+          <td>Unknown key format</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_CONVERT</errorcode></td>
+
+          <td>Couldn't read or write a key</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_KEYCREATE</errorcode></td>
+
+          <td>Couldn't create a new key</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_KEYCOMPAT</errorcode></td>
+
+          <td>Public and secret keys are incompatible</td>
+        </tr>
+
+        <tr>
+          <td><errorcode>EP_STAT_CRYPTO_CIPHER</errorcode></td>
+
+          <td>Symmetric cipher failure</td>
+        </tr>
+      </informaltable>
+    </section>
+  </section>
+
+  <section>
+    <title>APPLICATION SUPPORT</title>
+
+    <para>The following routines are intended to provide useful support to
+    applications, but are not otherwise fundamental</para>
+
+    <section>
+      <title>Printing Flag Words, Etc.</title>
+
+      <programlisting>    #include &lt;ep/ep_prflags.h&gt;
+
+    void
+    ep_prflags(
+                u_int32 flagword,               // the flags word to print
+                EP_PRFLAGS_DESC *flaglist,      // descriptor of flags
+                FILE *out)                      // output stream
+
+    typedef struct ep_prflags_desc
+    {
+            u_int32     bits;           // bits to compare against
+            u_int32     mask;           // mask against flagword
+            char        *name;          // printable name
+    } EP_PRFLAGS_DESC;</programlisting>
+
+      <para>For example, given a descriptor of:</para>
+
+      <programlisting>        0x0000, 0x0003, "READ",
+        0x0001, 0x0003, "WRITE",
+        0x0002, 0x0003, "READWRITE",
+        0x0003, 0x0003, "[INVALID MODE]",
+        0x0004, 0x0004, "NONBLOCK",
+        0x0008, 0x0008, "APPEND",
+        0,      0,      NULL</programlisting>
+
+      <para>then a flagword of 0x0009 would print:</para>
+
+      <para><computeroutput> 0009&lt;WRITE,APPEND&gt;</computeroutput></para>
+    </section>
+
+    <section>
+      <title>Printing Helpers</title>
+
+      <para>A few routines to make it easier to create string versions of
+      other type variables, e.g., for
+      <function>ep_stat_post</function>.</para>
+
+      <programlisting>    #include &lt;ep/ep_pcvt.h&gt;
+
+    char *ep_pcvt_str(size_t osize,             // output buffer size
+                char *obuf,                     // output buffer
+                const char *val)                // value to convert
+
+    char *ep_pcvt_int(size_t osize,             // output buffer size
+                char *obuf,                     // output buffer
+                int base,                       // base of value
+                int val)                        // value to convert</programlisting>
+
+      <para>All of these return their input buffer.</para>
+
+      <para>The routine <function>ep_pcvt_str</function> truncates the value
+      to the indicated size. If the value won't fit, it renders
+      "<replaceable>beginning</replaceable>...<replaceable>end</replaceable>"
+      where <replaceable>end</replaceable> is the last three bytes of the
+      value.</para>
+    </section>
+
+    <section>
+      <title>Application Messages</title>
+
+      <para>Associated with status printing.</para>
+
+      <programlisting>    #include &lt;ep/ep_app.h&gt;
+
+    void ep_app_info(const char *fmt,           // printf-style format
+                ...)
+
+    void ep_app_warn(const char *fmt,           // printf-style format
+                ...)
+
+    void ep_app_error(const char *fmt,          // printf-style format
+                ...)
+
+    void ep_app_fatal(const char *fmt,          // printf-style format
+                ...)
+
+    void ep_app_abort(const char *fmt,          // printf-style format
+                ...)
+
+    void ep_app_setflags(uint32_t flags)        // set operational tweaks</programlisting>
+
+      <para>The first three just print messages; the second two print the
+      message and does not return. <function>ep_app_abort</function> generates
+      a core dump on termination. All five use printf formats.
+      <function>ep_app_setflags</function> sets flags telling when to also do
+      logging; the flags are <constant>EP_APP_FLAG_LOGABORTS</constant>,
+      <constant>EP_APP_FLAG_LOGFATALS</constant>,
+      <constant>EP_APP_FLAG_LOGERRORS</constant>,
+      <constant>EP_APP_FLAG_LOGWARNINGS</constant>, and
+      <constant>EP_APP_FLAG_LOGINFOS</constant>. The log severity is different
+      for these various functions.</para>
+
+      <programlisting>    const char *
+    ep_app_getprogname(void)                    // get current program name</programlisting>
+
+      <para>This is a portability wrapper that returns the name of the current
+      program (essentially, the last component of argv[0]).</para>
+    </section>
+
+    <section>
+      <title>Printing Memory</title>
+
+      <para>To print out a block of binary memory, use ep_hexdump.</para>
+
+      <programlisting>    #include &lt;ep/ep_hexdump.h&gt;
+
+    void
+    ep_hexdump(void *bufp,                       // block of memory to print
+        size_t buflen,                           // size of that block
+        FILE *fp,                                // output file
+        int format,                              // see description
+        size_t offset);                          // offset</programlisting>
+
+      <para>This prints a block of memory as a hexadecimal dump, optionally
+      with an ASCII rendition. The offset printed starts at the
+      <varname>offset</varname> parameter (zero to make the printed offsets be
+      relative to <varname>bufp</varname>). The <varname>format</varname> may
+      be <constant>EP_HEXDUMP_HEX</constant> to print only the hexadecimal or
+      <constant>EP_HEXDUMP_ASCII</constant> to also show the bytes interpreted
+      as ASCII (unprintable characters are substituted).</para>
+    </section>
+  </section>
+
+  <section>
+    <title>DEBUGGING, TRACING, ASSERTIONS</title>
+
+    <para>Named flags, each settable from 0 to 127.</para>
+
+    <para>When setting flags, wildcards can be used (only <quote>*</quote>
+    supported for now).</para>
+
+    <programlisting>    #include &lt;ep/ep_dbg.h&gt;
+
+    void
+    ep_dbg_init(void)                   // initialize debugging
+
+    void
+    ep_dbg_set(const char *fspec)       // set debug flags (command line)
+
+    void
+    ep_dbg_setto(const char *fpat,      // flag pattern
+                int lev)                // level
+
+    EP_DBG  <replaceable>flag</replaceable> EP_DBG_INIT(           // opaque structure for flag
+                        name,           // external name of flag
+                        desc);          // description (internal use only)
+
+    int
+    ep_dbg_level(EP_DBG *flag)          // return level of given flag
+
+    bool
+    ep_dbg_test(EP_DBG *flag,
+                 int value)             // true if flag set to &gt;= value
+
+    void
+    ep_dbg_printf(fmt, ...)             // print to EpStStddbg
+
+    void
+    ep_dbg_cprintf(EP_DBG *flag,        // if flag level &gt;= value,
+                int value,
+                fmt, ...)               // print fmt etc as though printf.
+
+    void
+    ep_dbg_setfile(FILE *fp)            // set debug output to indicated file
+
+    void
+    ep_dbg_getfile(void)                // return current debug output file</programlisting>
+
+    <para>Assertions are intended to catch "cannot happen" cases. They are not
+    necessarily fatal, depending on configuration controlled by administrative
+    parameters: <parameter>libep.assert.maxfailures</parameter> specifies the
+    number of assertion failures that will be tolerated before the process
+    aborts; however, every <parameter>libep.assert.resetinterval</parameter>
+    milliseconds the failure count is reset. For example, if
+    <parameter>libep.assert.maxfailures</parameter> is one, all assertion
+    failures are fatal; if zero, none are. It defaults to 100.
+    <parameter>libep.assert.resetinterval</parameter> defaults to 2000 (two
+    seconds).</para>
+
+    <programlisting>    #include &lt;ep/ep_assert.h&gt;
+
+    EP_ASSERT(condition)                // fail if condition is false; returns the condition itself
+
+    EP_ASSERT_ELSE(condition, recovery) // print and run recovery code if condition not satisfied
+
+    EP_ASSERT_PRINT(                    // print assertion failure message
+            const char *msg,               // message to print
+            ...)                           // arguments to message
+    ep_assert_print(                    // print assertion failure with extra info and message
+            const char *file,              // file name
+            int line,                      // line number
+            const char *msg,               // message to print
+            ...)                           // arguments to message
+
+    EP_ASSERT_FAILURE(                  // abort process with message
+            const char *msg,               // message to print
+            ...)                           // arguments to message
+    ep_assert_failure(                  // abort process with extra info and message
+            const char *file,              // file name
+            int line,                      // line number
+            const char *msg,               // message to print
+            ...)                           // arguments to message
+
+    void    (*EpAssertInfo)(void)       // if set, call to print additional information
+    void    (*EpAssertAbort)(void)      // function to call before aborting
+    bool    EpAssertAllAbort            // if set, all assertions are immediately fatal</programlisting>
+
+    <para>Programs may try to recover from assertion failures by testing the
+    result of <function>EP_ASSERT</function>, which will be true if the
+    condition holds. For example, either of these return an error code if a
+    pointer is <constant>NULL</constant>:</para>
+
+    <programlisting>    if (!EP_ASSERT(p != NULL))
+        return EP_STAT_ASSERT_ABORT;
+
+    EP_ASSERT_ELSE(p != NULL, return EP_STAT_ASSERT_ABORT);</programlisting>
+
+    <para>Processes can force an abort as though they got an assertion failure
+    by calling <function>ep_assert_failure</function>. Note that this does not
+    attempt any recovery; <function>ep_assert_print</function> does the same
+    thing but does not abort. The macros
+    <function>EP_ASSERT_FAILURE</function> and
+    <function>EP_ASSERT_PRINT</function> do the same thing, but provide the
+    <parameter>file</parameter> name and <parameter>line</parameter> number in
+    the same way as the assertion tests. If the
+    <varname>EpAssertInfo</varname> variable is set, that function will be
+    called after printing the message but before aborting. It can be used to
+    dump process state for debugging. If the <varname>EpAssertAbort</varname>
+    variable is set, that function will be called after the message is printed
+    and immediately before the process aborts. This might do last minute
+    recovery or alternative termination (e.g., terminate just the thread
+    rather than the entire process).</para>
+  </section>
+
+  <section>
+    <title>THREAD SUPPORT</title>
+
+    <para>These are mostly wrappers around the pthreads library, but they will
+    print errors if the <code>ep.thr</code> debug flag is set to at least
+    4.</para>
+
+    <programlisting>#include &lt;ep/ep_thr.h&gt;
+
+int
+ep_thr_mutex_init(EP_THR_MUTEX *mtx, int type);
+
+int
+ep_thr_mutex_destroy(EP_THR_MUTEX *mtx);
+
+int
+ep_thr_mutex_lock(EP_THR_MUTEX *mtx);
+
+int
+ep_thr_mutex_trylock(EP_THR_MUTEX *mtx);
+
+int
+ep_thr_mutex_unlock(EP_THR_MUTEX *mtx);
+
+int
+ep_thr_mutex_check(EP_THR_MUTEX *mtx);
+
+int
+ep_thr_cond_init(EP_THR_COND *cv);
+
+int
+ep_thr_cond_destroy(EP_THR_COND *cv);
+
+int
+ep_thr_cond_signal(EP_THR_COND *cv);
+
+int
+ep_thr_cond_wait(EP_THR_COND *cv, EP_THR_MUTEX *mtx, EP_TIME_SPEC *timeout);
+
+int
+ep_thr_cond_broadcast(EP_THR_COND *cv);
+
+int
+ep_thr_rwlock_init(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_destroy(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_rdlock(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_tryrdlock(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_wrlock(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_tryrwlock(EP_THR_RWLOCK *rwl);
+
+int
+ep_thr_rwlock_unlock(EP_THR_RWLOCK *rwl);</programlisting>
+
+    <para>The ep_thr_*_check routines check the structures for consistency and
+    print an error; this is only for debugging. <remark>This should be
+    expanded to include spawning threads etc.; for the time being just use the
+    pthreads primitives.</remark></para>
+
+    <para>There is also a basic thread pool implementation:</para>
+
+    <programlisting>#include &lt;ep/ep_thr.h&gt;
+
+void
+ep_thr_pool_init(
+        int min_threads,
+        int max_threads,
+        uint32_t flags);
+
+void
+ep_thr_pool_run(
+        void (*func)(void *),
+        void *arg);</programlisting>
+
+    <para>Thread pools are initially started with
+    <varname>min_threads</varname> workers (which may be zero; defaults to the
+    <parameter>libep.thr.pool.min_workers</parameter> administrative
+    parameter, or 1 if that is not set). Threads will be spawned as necessary
+    up to <varname>max_threads</varname> total workers (defaults to
+    <parameter>libep.thr.pool.max_workers</parameter>; if that is not set,
+    defaults to twice the number of cores available).</para>
+
+    <para>Threads are run in essentially the same way as spawning a pthreads
+    thread; this is really just a convenience wrapper around that so resources
+    can be better controlled.</para>
+  </section>
+
+  <section>
+    <title>LOGGING</title>
+
+    <para>Messages may be logged together with a status code:</para>
+
+    <programlisting>#include &lt;ep/ep_log.h&gt;
+
+void
+ep_log_init(
+        const char *tag,
+        int logfac,
+        FILE *logfile);
+
+void
+ep_log_addmethod(
+        void (*func)(void *ctx, EP_STAT estat, const char *fmt, va_list ap),
+        void *ctx,
+        int minsev);
+
+void
+ep_log(
+        EP_STAT estat,
+        const char *fmt,
+        ...);
+
+void
+ep_logv(
+        EP_STAT estat,
+        const char *fmt,
+        va_list va);</programlisting>
+
+    <para>The <function>ep_log</function> and <function>ep_logv</function>
+    routines send information to various system logs. The default is to send
+    to <function>syslog</function>(3) and to <symbol>stderr</symbol>. You can
+    disable or change this by calling <function>ep_log_init</function> before
+    the first logging call, and extend it by passing another logging method to
+    <function>ep_log_addmethod</function>, which causes
+    <parameter>func</parameter> to be called whenever a message with severity
+    at least the value of the <parameter>minsev</parameter> parameter
+    (<constant>EP_STAT_SEV_OK</constant>,
+    <constant>EP_STAT_SEV_WARN</constant>,
+    <constant>EP_STAT_SEV_ERROR</constant>,
+    <constant>EP_STAT_SEV_SEVERE</constant>,
+    <constant>EP_STAT_SEV_ABORT</constant>).</para>
+
+    <para>The status code is logged together with the printf-style message.
+    The syslog severity is determined from the severity of the status code:
+    <constant>OK</constant> codes log an <constant>LOG_INFO</constant>
+    message, <constant>WARN</constant> codes log a
+    <constant>LOG_WARNING</constant> message, <constant>ERROR</constant> codes
+    log a <constant>LOG_ERR</constant> message, <constant>SEVERE</constant>
+    codes log a <constant>LOG_CRIT</constant> message, and
+    <constant>ABORT</constant> codes log a <constant>LOG_ALERT</constant>
+    message.</para>
+  </section>
+
+  <section>
+    <title>ARGUMENT CRACKING</title>
+
+    <para><remark>Not implemented at this time</remark>. To help with parsing
+    command line arguments. A descriptor is declared as follows:</para>
+
+    <programlisting>    #include &lt;ep/ep_crackargv.h&gt;
+
+    unsigned long       NTests;
+    long                Seed;
+    static char         *FileName;
+
+    EP_CAV_DESCR        ArgvDescriptor[] =
+    {
+        { "debug",              EP_CAV_TYPE(debug),     'D',    5,
+                "Debug",                "debug-flags",          NULL,
+                EP_CAV_FLAG_NOARGS
+        },
+        { "ntests",             EP_CAV_TYPE(ulong),     'n',    1,
+                "Number of tests",      NULL,                   &amp;NTests,
+                EP_CAV_FLAG_REQUIRED
+        },
+        { "seed",               EP_CAV_TYPE(long),      's',    1,
+                NULL,                   NULL,                   &amp;Seed,
+                EP_CAV_FLAG_NONE
+        }
+        { NULL,                 EP_CAV_TYPE(string),    '\0',   0,
+                NULL,                   NULL,                   &amp;FileName,
+                EP_CAV_FLAG_NONE
+        }
+        EP_CAV_DESCR_END
+    };</programlisting>
+
+    <para>The <function>ep_crackargv</function> routine is then called with an
+    argument vector and a descriptor:</para>
+
+    <programlisting>    stat = ep_crackargv(const char **argv, const EP_CAV_DESCR *descr);</programlisting>
+
+    <para>The argument vector is then matched to the descriptor and
+    appropriate bindings done. Duplicate and missing flags are diagnosed and
+    all conversions are done.</para>
+
+    <para>The fields in the descriptor are:</para>
+
+    <itemizedlist>
+      <listitem>
+        <para>The long name. On Unix, this is matched against arguments
+        beginning "--". This is case independent.</para>
+      </listitem>
+
+      <listitem>
+        <para>The data type. This is always
+        <constant>EP_CAV_TYPE</constant>(something), which calls the
+        conversion routine named <function>ep_cvt_txt_to_something</function>
+        passing it the value as a text string and a pointer to the output
+        location (see below).</para>
+      </listitem>
+
+      <listitem>
+        <para>The short (single character) name. On Unix, this is matched
+        against arguments beginning "-". Flags without values can be combined
+        into one flag -- that is, if "-a -b" sets two boolean flags, "-ab"
+        does the same thing.</para>
+      </listitem>
+
+      <listitem>
+        <para>The number of bytes of the long name that must match. This
+        allows abbreviation of names. See below.</para>
+      </listitem>
+
+      <listitem>
+        <para>The prompt. If flags are required and a prompt is available,
+        <function>ep_crackargv</function> can prompt for missing parameters.
+        Not yet implemented.</para>
+      </listitem>
+
+      <listitem>
+        <para>The usage message to describe this parameter. Defaults to the
+        long name.</para>
+      </listitem>
+
+      <listitem>
+        <para>The value pointer. A pointer to the data area in which to store
+        the results. If NULL, this parameter cannot accept a value.</para>
+      </listitem>
+
+      <listitem>
+        <para>Flag bits, as described below.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Long flag names can be abbreviated. All characters of the command
+    line must match the descriptor, but only the number indicated in the "must
+    match" field need be present. For example, given a name in the descriptor
+    of "ntests" with a "must match" field of 2 will match "--ntests",
+    "--ntes", "--nt", but not "--ntext", "--n", or "--nteststotry".</para>
+
+    <para>Flag bits include:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>EP_CAV_FLAG_NONE</constant></term>
+
+        <listitem>
+          <para>No special processing</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>EP_CAV_FLAG_NOARGS</constant></term>
+
+        <listitem>
+          <para>This parameter takes no arguments (e.g., a boolean)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>EP_CAV_FLAG_NOMORE</constant></term>
+
+        <listitem>
+          <para>This consumes all remaining arguments (normally
+          EP_CAV_TYPE(Vector))</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>EP_CAV_FLAG_MULTVAL</constant></term>
+
+        <listitem>
+          <para>There can be multiple values for this parameter (only relevant
+          for flags)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>EP_CAV_FLAG_REQUIRED</constant></term>
+
+        <listitem>
+          <para>If this parameter is missing it is an error</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Predefined types and the type of the corresponding value pointer
+    are:</para>
+
+    <simplelist columns="3" type="horiz">
+      <member>bool</member>
+
+      <member>bool_t *</member>
+
+      <member>Booleans. Should have
+      <constant>EP_CAV_FLAG_NOARGS</constant>.</member>
+
+      <member>string</member>
+
+      <member>const char **</member>
+
+      <member>Strings.</member>
+
+      <member>long</member>
+
+      <member>long *</member>
+
+      <member>Signed long integers.</member>
+
+      <member>ulong</member>
+
+      <member>unsigned long *</member>
+
+      <member>Unsigned long integers.</member>
+
+      <member>double</member>
+
+      <member>double *</member>
+
+      <member>Double point floating point.</member>
+
+      <member>vector</member>
+
+      <member>const char ***</member>
+
+      <member>Vectors. Must have the EP_CAV_FLAG_MULTVAL flag set. Can only be
+      one, and it must be at the end.</member>
+
+      <member>debug</member>
+
+      <member>NULL</member>
+
+      <member>Sets debug flags</member>
+    </simplelist>
+
+    <para>To appear:</para>
+
+    <simplelist columns="2" type="horiz">
+      <member>int8</member>
+
+      <member>int8_t *</member>
+
+      <member>uint8</member>
+
+      <member>uint8_t *</member>
+
+      <member>int16</member>
+
+      <member>int16_t *</member>
+
+      <member>uint16</member>
+
+      <member>uint16_t *</member>
+
+      <member>int32</member>
+
+      <member>int32_t *</member>
+
+      <member>uint32</member>
+
+      <member>uint32_t *</member>
+
+      <member>int64</member>
+
+      <member>int64_t *</member>
+
+      <member>uint64</member>
+
+      <member>uint64_t *</member>
+
+      <member>admparam</member>
+
+      <member>const char *</member>
+    </simplelist>
+
+    <para>Administrative parameters (see
+    <function>ep_adm_getintparam</function> and
+    <function>ep_adm_getstrparam</function>). The value pointer is the name of
+    the parameter to set.</para>
+
+    <para>New parameter types can be trivially created by defining new
+    routines named
+    <function>ep_cvt_txt_to_</function><replaceable>type</replaceable> that
+    take a <type>const char *</type> as input and a
+    <type><replaceable>type</replaceable> *</type> output pointer. They return
+    <type>EP_STAT</type>. Conversion errors should fail.</para>
+  </section>
+
+  <section>
+    <title>MISCELLANEOUS STUFF</title>
+
+    <programlisting linenumbering="numbered">    EP_UT_BITSET(uint32 bits,           // return true if any bits...
+                uint32_t word)          // ... are set in word
+
+/*
+    EP_UT_SETBIT(uint32_t bits,         // set these bits...
+                uint32_t word)          // ... in this word
+
+    EP_UT_CLRBIT(uint32 bits,           // clear these bits...
+                uint32_t word)          // ... in this word
+*/
+
+    EP_UT_BITMAP(               // declare bitmap
+        name,                           // name of bitmap to declare
+        nbits)                          // number of bits in map
+
+    EP_UT_CLRBITMAP(            // clear bitmap
+        name)                           // bitmap to clear
+
+    EP_UT_BITNSET(int bitn,             // true if bit number bitn is set...
+                bitmap)                 // ... in this map
+
+    EP_UT_SETBITN(int bitn,             // set bit number bitn...
+                bitmap)                 // ... in this map
+
+    EP_UT_CLRBITN(int bitn,             // clear bit number bitn...
+                bitmap)                 // ... in this map
+
+    EP_GEN_DEADBEEF                     // a value you can use to trash memory</programlisting>
+
+    <warning>
+      <para>There is no checking for the BITMAP routines
+      (<function>EP_UT_BITNSET</function>, <function>EP_UT_SETBITN</function>,
+      <function>EP_UT_CLRBITN</function>) to ensure that the bit indicated is
+      in range for the size of the bitmap.</para>
+    </warning>
+  </section>
+
+  <section>
+    <title>INTERACTION WITH THE ENVIRONMENT</title>
+
+    <section>
+      <title>Global Administrative Parameters</title>
+
+      <para>There are a bunch of parameters that we would prefer to be
+      settable at run time. We'll model this on sysctl(8). Before accessing
+      parameters you must read them using
+      <function>ep_adm_readparams</function>. This routine takes a
+      <varname>name</varname> and then looks for a file in a search path. That
+      path may be set using the PARAM_PATH environment variable, and defaults
+      to:<programlisting>.ep_adm_params:~/.ep_adm_params:/usr/local/etc/ep_adm_params:/etc/ep_adm_params</programlisting>For
+      example, searching for a name such as "<userinput>defaults</userinput>"
+      will first try to read the file
+      <filename>.ep_adm_params/defaults</filename>. If that is found the
+      search stops, otherwise it trys
+      <filename>~/.ep_adm_params/defaults</filename>, and so forth. New values
+      replace old ones, so programs that want to search more than one file
+      should start with the most generic one and continue to the least generic
+      one.</para>
+
+      <programlisting>    #include &lt;ep/ep_adm.h&gt;
+
+    void
+    ep_adm_readparams(
+                const char *name)       // basename of the parameter file
+
+    int
+    ep_adm_getintparam(
+                const char *name,       // name of the parameter
+                int default)            // value if parameter not set
+
+    long
+    ep_adm_getlongparam(
+                const char *name,       // name of the parameter
+                long default)           // value if parameter not set
+
+    intmax_t
+    ep_adm_getintmaxparam(
+                const char *name,       // name of the parameter
+                intmax_t default)       // value if the parameter is not set
+
+    bool
+    ep_adm_getboolparam(
+                const char *name,       // name of the parameter
+                bool default)           // value if parameter not set
+
+    const char *
+    ep_adm_getstrparam(
+                const char *name,       // name of the parameter
+                char *default)          // value if parameter not set</programlisting>
+
+      <para>Names are structured kind of like <function>sysctl</function>
+      arguments or X Resource names, e.g.,
+      "<varname>libep.stream.hfile.bsize</varname>". You must read one or more
+      parameter files before getting parameters.</para>
+
+      <para>If the <constant>EP_CONF_ADM_ENV_OVERRIDE</constant> defined
+      constant is set to <constant>1</constant> during compilation, parameters
+      can be overridden in the environment. For example,</para>
+
+      <programlisting>env swarm.gdp.routers=foo.example.com gdplogd</programlisting>
+
+      <para>This only works if the program is running as a non-root user
+      without setuid.</para>
+    </section>
+
+    <section>
+      <title>Terminal Video Sequences and Characters</title>
+
+      <para>Mostly for debugging use. Right now compiled in for ANSI
+      xterms.</para>
+
+      <programlisting>    #include &lt;ep/ep_string.h&gt;
+
+    struct epVidSequences
+    {
+        const char    *vidnorm;       // set video to normal
+        const char    *vidbold;       // set video to bold
+        const char    *vidfaint;      // set video to faint
+        const char    *vidstout;      // set viadeo to "standout"
+        const char    *viduline;      // set video to underline
+        const char    *vidblink;      // set video to blink
+        const char    *vidinv;        // set video to invert
+        const char    *vidfgblack;    // set foreground black
+        const char    *vidfgred;      // set foreground red
+        const char    *vidfggreen;    // set foreground green
+        const char    *vidfgyellow;   // set foreground yellow
+        const char    *vidfgblue;     // set foreground blue
+        const char    *vidfgmagenta;  // set foreground magenta
+        const char    *vidfgcyan;     // set foreground cyan
+        const char    *vidfgwhite     // set foreground white
+        const char    *vidbgblack;    // set background black
+        const char    *vidbgred;      // set background red
+        const char    *vidbggreen;    // set background green
+        const char    *vidbgyellow;   // set background yellow
+        const char    *vidbgblue      // set background blue
+        const char    *vidbgmagenta;  // set background magenta
+        const char    *vidbgcyan;     // set background cyan
+        const char    *vidbtwhite;    // set background white
+    } *EpVid;
+
+    struct epCharSequences
+    {
+        const char    *lquote;        // left quote sequence
+        const char    *rquote;        // right quote sequence
+        const char    *copyright;     // copyright symbol
+        const char    *degree;        // degree symbol
+        const char    *micro;         // micro symbol
+        const char    *plusminus;     // +/- symbol
+        const char    *times;         // mathematical times symbol
+        const char    *divide;        // mathematical division symbol
+        const char    *null;          // "null" symbol
+        const char    *notequal;      // mathematical "not equal" symbol
+        const char    *unprintable;   // substitution for unprintable characters
+        const char    *paragraph;     // paragraph symbol
+        const char    *section;       // section symbol
+        const char    *notsign;       // logical not symbol
+        const char    *infinity;      // infinity symbol
+    } *EpChar;
+
+    EP_STAT   ep_str_vid_set(         // set video style
+        const char    *type);         // NULL, "none", or "ansi"
+
+    EP_STAT   ep_str_char_set(        // set special characters
+        const char    *type);         // character set (see below)</programlisting>
+
+      <para>These structures contain character sequences used for printing
+      video controls and special characters respectively. The
+      <function>ep_str_vid_set</function> routines allows you to choose the
+      video escape sequences. Passing <constant>NULL</constant> causes an
+      educated guess at the default on the basis of the <envar>TERM</envar>
+      environment variable. Any <envar>TERM</envar> setting beginning with
+      "<constant>xterm</constant>" is the same as specifying
+      "<constant>ansi</constant>" as the type and anything else is the same as
+      specifying "<constant>none</constant>" as the type (which sets all the
+      video strings to null strings). Blessedly, xterm doesn't seem to render
+      blink, nor faint or standout. Bold and blink are both rendered in bold.
+      So, for best results use bold, uline, and inv (and of course
+      norm).</para>
+
+      <para>The <function>ep_str_char_set</function> allows you to set special
+      character encodings. Its parameter may be <constant>NULL</constant>
+      (which guesses based on the <envar>LANG</envar> environment variable),
+      "<constant>ascii</constant>", "<constant>iso-8859-1</constant>",
+      "<constant>iso-latin-1</constant>", "<constant>utf-8</constant>", or
+      "<constant>utf8</constant>". The mappings are shown in the following
+      table:</para>
+
+      <informaltable frame="box" rules="all">
+        <thead>
+          <tr align="center">
+            <th>Name</th>
+
+            <th>ASCII</th>
+
+            <th>Other Charset</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>lquote</td>
+
+            <td align="center">`</td>
+
+            <td align="center">&laquo;</td>
+          </tr>
+
+          <tr>
+            <td>rquote</td>
+
+            <td align="center">'</td>
+
+            <td align="center">&raquo;</td>
+          </tr>
+
+          <tr>
+            <td>copyright</td>
+
+            <td align="center">(c)</td>
+
+            <td align="center">&copy;</td>
+          </tr>
+
+          <tr>
+            <td>degree</td>
+
+            <td align="center">deg</td>
+
+            <td align="center">&deg;</td>
+          </tr>
+
+          <tr>
+            <td>micro</td>
+
+            <td align="center">u</td>
+
+            <td align="center">&micro;</td>
+          </tr>
+
+          <tr>
+            <td>plusminus</td>
+
+            <td align="center">+/-</td>
+
+            <td align="center">&plusmn;</td>
+          </tr>
+
+          <tr>
+            <td>times</td>
+
+            <td align="center">*</td>
+
+            <td align="center">&times;</td>
+          </tr>
+
+          <tr>
+            <td>divide</td>
+
+            <td align="center">/</td>
+
+            <td align="center">&divide;</td>
+          </tr>
+
+          <tr>
+            <td>null</td>
+
+            <td align="center">NULL</td>
+
+            <td align="center">&empty;</td>
+          </tr>
+
+          <tr>
+            <td>notequal</td>
+
+            <td align="center">!=</td>
+
+            <td align="center">&ne;</td>
+          </tr>
+
+          <tr>
+            <td>unprintable</td>
+
+            <td align="center">?</td>
+
+            <td align="center">&#8999;</td>
+          </tr>
+
+          <tr>
+            <td>paragraph</td>
+
+            <td align="center">pp.</td>
+
+            <td align="center">&para;</td>
+          </tr>
+
+          <tr>
+            <td>section</td>
+
+            <td align="center">sec.</td>
+
+            <td align="center">&sect;</td>
+          </tr>
+
+          <tr>
+            <td>notsign</td>
+
+            <td align="center">(not)</td>
+
+            <td align="center">&not;</td>
+          </tr>
+
+          <tr>
+            <td>infinity</td>
+
+            <td align="center">(inf)</td>
+
+            <td align="center">&infin;</td>
+          </tr>
+        </tbody>
+      </informaltable>
+
+      <para>Other values may be added to this table as needed.</para>
+
+      <para>Example:</para>
+
+      <programlisting>    fprintf(ep_dbg_getfile(), "Input was %s%s%s\n",
+                        EpVidSeq.lquote, input, EpVidSeq.rquote);</programlisting>
+    </section>
+
+    <section>
+      <title>Startup/Shutdown</title>
+
+      <para>If running under <systemitem>systemd</systemitem>-based versions
+      of Linux, it is possible to signal status changes to the startup
+      environment, notably about system startup and shutdown. This is only
+      relevant for programs that run as system daemons.</para>
+
+      <programlisting>#include &lt;ep/ep_sd.h&gt;
+
+void
+ep_sd_notifyf(
+        const char *fmt,
+        ...);</programlisting>
+
+      <para>The <parameter>fmt</parameter> and any arguments are printed a'la
+      <function>printf</function>(3) to a system buffer that is delivered to
+      <systemitem>systemd</systemitem>. The format of that buffer is defined
+      by <function>sd_notify</function>(3) and is not detailed here. Roughly,
+      each line of the output looks like an environment variable definition.
+      For example:</para>
+
+      <programlisting>// to inform the system that this service is ready:
+ep_sd_notifyf(
+        "READY=1");
+
+// to inform the system that this service is shutting down:
+ep_sd_notifyf(
+        "STOPPING=1\n"
+        "STATUS=Exiting on user signal %d\n",
+        sig);</programlisting>
+
+      <para>Important values include <literal>READY=1</literal>,
+      <literal>RELOADING=1</literal>, <literal>WATCHDOG=1</literal>, and
+      <literal>STOPPING=...</literal>.</para>
+
+      <para>If the <constant>EP_OSCF_HAS_SD_NOTIFY</constant> flag is set to
+      zero at compilation time, this call is a no-op. This is the case on most
+      systems.</para>
+
+      <remark>This should really abstract the syntax out more, rather than
+      making it <systemitem>systemd</systemitem> specific, so that it can
+      potentially be used on other systems.</remark>
+    </section>
+  </section>
+
+  <section>
+    <title>TRANSLATIONS</title>
+
+    <para>Simple string translations for certain external formats, for example
+    as might be used by URLs or Quoted-Printable.</para>
+
+    <programlisting>    #include &lt;ep/ep_xlate.h&gt;
+
+    int
+    ep_xlate_in(
+        const void *ext,                // external (encoded) string input
+        uchar_t *out,                   // pointer to output buffer
+        size_t olen,                    // length of output buffer
+        char stopchar,                  // input char to stop at
+        uint32_t how)                   // what kind of translations to do</programlisting>
+
+    <para>Translates an external form (with encodings) into internal form
+    (potentially 8-bit binary). Returns the number of output bytes. The "how"
+    parameter tells what translations to do -- they can be combined:</para>
+
+    <table>
+      <title>EP_XLATE "how" Bits</title>
+
+      <tgroup cols="2">
+        <colspec/>
+
+        <colspec colwidth="3*"/>
+
+        <tbody>
+          <row>
+            <entry>EP_XLATE_PERCENT</entry>
+
+            <entry>Translate "%xx" like ESMTP</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_BSLASH</entry>
+
+            <entry>Translate backslash escapes like C</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_AMPER</entry>
+
+            <entry>Translate "&amp;name;" like HTML</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_PLUS</entry>
+
+            <entry>Translate "+xx" like DNSs</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_EQUAL</entry>
+
+            <entry>Translate "=xx" like quoted-printable</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_8BIT</entry>
+
+            <entry>Translate 8-bit characters
+            (<function>ep_xlate_out</function> only)</entry>
+          </row>
+
+          <row>
+            <entry>EP_XLATE_NPRINT</entry>
+
+            <entry>Translate non-printable characters
+            (<function>ep_xlate_out</function> only)</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <programlisting>    int
+    ep_xlate_out(
+        const void *in,                 // internal (not encoded) input string
+        size_t ilen,                    // length of in
+        FILE *osp,                      // encoded output stream pointer
+        const char *forbid,             // list of characters to encode
+        uint32_t how)                   // how to do output translations</programlisting>
+
+    <para>Unlike input, it doesn't make sense to list more than one of
+    <constant>EP_XLATE_PERCENT</constant>,
+    <constant>EP_XLATE_BSLASH</constant>, <constant>EP_XLATE_EQUAL</constant>,
+    and <constant>EP_XLATE_PLUS</constant>. If none are listed,
+    <constant>EP_XLATE_PLUS</constant> is assumed.
+    <constant>EP_XLATE_8BIT</constant> can be added to encode all 8-bit
+    characters and <constant>EP_XLATE_NPRINT</constant> translates all
+    unprintable characters (as determined by <function>isprint(3)</function>,
+    which generally does understand locales). Returns the number of bytes
+    output to the indicated osp.</para>
+
+    <note>
+      <para>[[Arguably they should both use streams for both input and
+      output.]]</para>
+    </note>
+
+    <para>There are also routines to encode/decode binaries in base64.</para>
+
+    <programlisting>    #include &lt;ep/ep_b64.h&gt;
+
+    EP_STAT
+    ep_b64_encode(
+        const void *bin,                // binary data to encode
+        size_t bsize,                   // size of bin to encode
+        char *txt,                      // text output buffer
+        size_t tsize,                   // size of output buffer
+        const char *encoding)           // type of encoding (see below)
+
+    EP_STAT
+    ep_b64_decode(
+        const char *txt,                // text to decode
+        size_t tsize,                   // stop after tsize characters
+        void *bin,                      // binary output buffer
+        size_t bsize,                   // size of bin buffer
+        const char *encoding)           // type of encoding (see below)
+
+    #define EP_B64_NOWRAP       0x00    // never wrap lines
+    #define EP_B64_WRAP64       0x01    // wrap at 64 characters
+    #define EP_B64_WRAP76       0x02    // wrap at 76 characters
+    #define EP_B64_WRAPMASK     0x03    // bit mask for wrapping
+    #define EP_B64_PAD          0x04    // pad with '='
+    #define EP_B64_IGNCRUD      0x08    // ignore unrecognized chars
+
+    // encodings for common standards
+    #define EP_B64_ENC_MIME     "+/N"   // WRAP76  PAD  IGNCRUD
+    #define EP_B64_ENC_PEM      "+/E"   // WRAP64  PAD -IGNCRUD
+    #define EP_B64_ENC_URL      "-_@"   // NOWRAP -PAD -IGNCRUD</programlisting>
+
+    <para>The encoding is a three character string. The first two characters
+    are used to represent the codes for positions 62 and 63 (these are the
+    only two that are not letters or digits). The third is used as flag bits
+    to indicate variations for various encodings. The three most common
+    strings are included as defined constants (for MIME email, Privacy
+    Enhanced Mail, and URLs).</para>
+  </section>
+
+  <section>
+    <title>XXX TO BE DONE</title>
+
+    <itemizedlist>
+      <listitem>
+        <para>Document ep_pprint.</para>
+      </listitem>
+
+      <listitem>
+        <para>Document ep_dumpfds (shows open file descriptors (for
+        debugging).</para>
+      </listitem>
+
+      <listitem>
+        <para>Document ep_fread_unlocked.</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>

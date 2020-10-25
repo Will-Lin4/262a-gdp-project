@@ -1,0 +1,249 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en-US">
+
+<head profile="http://gmpg.org/xfn/11">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+<title>Introducing: The SCGI C Library</title>
+
+<link rel="Shortcut Icon" href="http://www.xamuel.com/favicon.ico" type="image/x-icon"/>
+<link rel="stylesheet" href="http://www.xamuel.com/blog/wp-content/themes/fluid-blue/style.css" type="text/css" media="screen"/><link rel="alternate" type="application/rss+xml" title="Xamuel.com RSS Feed" href="http://www.xamuel.com/blog/feed/" />
+<link rel="pingback" href="http://www.xamuel.com/blog/xmlrpc.php" />
+<link rel="alternate" type="application/rss+xml" title="Xamuel.com &raquo; Introducing: The SCGI C Library Comments Feed" href="http://www.xamuel.com/scgilib/feed/" />
+<link rel='stylesheet' id='sexy-bookmarks-css'  href='http://www.xamuel.com/blog/wp-content/plugins/sexybookmarks/css/style.css?ver=6.1.3.4' type='text/css' media='all' />
+<script type="text/javascript">/* <![CDATA[ */ var SHRSB_Globals = {"src":"http:\/\/www.xamuel.com\/blog\/wp-content\/plugins\/sexybookmarks\/spritegen_default","perfoption":"1","twitter_template":"RT+%40XamuelA+%24%7Btitle%7D+%24%7Bshort_link%7D","locale":"0","shortener":"none","shortener_key":"","pubGaSocial":0,"pubGaKey":""}; /* ]]> */</script><script type='text/javascript' src='http://www.xamuel.com/blog/wp-includes/js/jquery/jquery.js?ver=1.4.2'></script>
+<script type='text/javascript' src='http://www.xamuel.com/blog/wp-content/plugins/sexybookmarks/js/shareaholic-perf.min.js?ver=6.1.3.4'></script>
+<script type='text/javascript' src='http://dtym7iokkjlif.cloudfront.net/dough/1.0/shareaholic-analytics.js'></script>
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="http://www.xamuel.com/blog/xmlrpc.php?rsd" />
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="http://www.xamuel.com/blog/wp-includes/wlwmanifest.xml" /> 
+<link rel='index' title='Xamuel.com' href='http://www.xamuel.com/blog/' />
+<link rel='start' title='Short Story: The Mirror' href='http://www.xamuel.com/short-story-the-mirror/' />
+<link rel='prev' title='General Antiderivatives' href='http://www.xamuel.com/general-antiderivatives/' />
+<link rel='next' title='Additive Geometric Patterns of Resemblance' href='http://www.xamuel.com/geometric-patterns-of-resemblance/' />
+<meta name="generator" content="WordPress 3.0" />
+<link rel='canonical' href='http://www.xamuel.com/scgilib/' />
+<link rel='shortlink' href='http://www.xamuel.com/blog/?p=4007' />
+
+<!-- Shareaholic Content Tags -->
+
+<meta property='shareaholic:site_name' content='Xamuel.com' />
+
+<!-- / Shareaholic Content Tags -->
+
+
+
+<!-- Shareaholic - Open Graph Tags -->
+
+	<!-- Shareaholic Notice: There is neither a featured nor gallery image set -->
+
+<!-- / Shareaholic - Open Graph Tags -->
+
+<script type="text/javascript" src="https://apis.google.com/js/plusone.js"></script></head>
+
+<body>
+<div id="page">
+<div id="header">
+	<div id="headertitle"><h1><a href="http://www.xamuel.com/scgilib/" rel="bookmark" title="Permanent Link to Introducing: The SCGI C Library">Introducing: The SCGI C Library</a></h1>
+<p>An Article from <a href='http://www.xamuel.com/' style='color:white;'>Xamuel.com</a></p>	</div> 
+	 <div class="rssblue"><a href="http://www.xamuel.com/feed/"><img src="http://www.xamuel.com/rss_blue.png"/></a></div>
+		
+	 		
+</div>
+
+
+<div id="wrapper">
+
+	<div id="content">
+
+			
+		<div class="navigation">
+			<div class="alignleft">&laquo; <a href="http://www.xamuel.com/general-antiderivatives/" rel="prev">General Antiderivatives</a></div>
+			<div class="alignright"><a href="http://www.xamuel.com/geometric-patterns-of-resemblance/" rel="next">Additive Geometric Patterns of Resemblance</a> &raquo;</div>
+		</div>
+
+		<div class="post" id="post-4007">
+
+			<div class="postentry">
+
+
+				<p>A year or so ago, I needed to write an SCGI server in C, and there weren&#8217;t any good C libraries for doing so, at least none with the features I wanted.  So, I wrote my own.  Now that the library I wrote has performed so well and withstood over a year&#8217;s worth of testing, I&#8217;m making it open source and releasing it into the public domain.</p>
+<p>The library consists of just two files:  <a href="http://www.xamuel.com/scgilib/src/scgilib.h">scgilib.h</a> and <a href="http://www.xamuel.com/scgilib/src/scgilib.c">scgilib.c</a>.  There is also an example file:  <a href="http://www.xamuel.com/scgilib/src/helloworld.c">helloworld.c</a>, which implements a <a href="http://www.xamuel.com/scgilib/helloworld/">bare-bones &#8220;Hello World&#8221; server</a> using the library.</p>
+<p>Here&#8217;s a link to the SCGI protocol specification:</p>
+<ul>
+<li><a href="http://python.ca/scgi/protocol.txt">SCGI: A Simple Common Gateway Interface alternative</a> by Neil Schemenauer</li>
+</ul>
+<h2>Features, Documentation, and Instructions</h2>
+<h3>Features</h3>
+<ul>
+<li>Asynchronous, non-blocking sockets.  All the necessary socket programming is taken care of in scgilib.c.  If one client connects to the library and slooooooowly starts sending a request, and while that request is still trickling in, a second client connects and sends a second request, the library will handle both requests simultaneously, without making the second client wait.  This is accomplished without forking the server into multiple processes (thus allowing the server to store an enormous and dynamic database in RAM).</li>
+<li>Listening for connections on multiple ports is as easy as calling the library initialization function multiple times.</li>
+<li>The library files are generously full of comments, I hope this will facilitate easily modifying the libraries as needed.</li>
+</ul>
+<h3>Documentation</h3>
+<p>There are three primary functions for interacting with the library:  scgi_initialize for turning the server on, scgi_recv for obtaining connections, and scgi_write for sending the response.  Connections are returned by scgi_recv in the form of an scgi_request structure (defined in scgilib.h) which contains fields for common things you might want to know about the request, such as what query string they sent, what their IP address is, etc.</p>
+<h4>scgi_initialize</h4>
+<p>int scgi_initialize( int port );</p>
+<p>Attempt to start an SCGI server which listens for connections to the specified port.</p>
+<p>Returns 1 on success, 0 on failure.</p>
+<p>Can be called multiple times with different port numbers, which will cause the library to listen on each port.  (This feature hasn&#8217;t been very rigorously tested)</p>
+<h4>scgi_recv</h4>
+<p>scgi_request *scgi_recv( void );</p>
+<p>Returns a pointer to a structure containing data about an incoming request.  The structure, struct SCGI_REQUEST, is defined in scgilib.h.  If there are multiple connections awaiting a response, scgi_recv will send the one which has been ready the longest.  If there are no new connections awaiting response, scgi_recv returns NULL.</p>
+<p>To read the info about the request (e.g., what query string they sent), simply read from the appropriate fields of the structure.  See <a href="http://www.xamuel.com/scgilib/helloworld.c">helloworld.c</a> for an example.</p>
+<p>Garbage collection is handled in scgilib.c:  the structures returned by scgi_recv are NOT meant to be manually freed.  They will automatically be freed shortly after you specify an HTTP response using scgi_write (you ARE sending responses to each request, right?  Even if the request is nonsense, you should at least send a 404 File Not Found).  A request will also be free&#8217;d any time the library detects that the connection has been terminated&#8211; this can be dangerous if you still have a pointer to the structure, so see the next paragraph.</p>
+<p>Since you (the library user) do not manually do the garbage collection, you may want to have a way to check whether a given request still exists in memory.  For this purpose, you may associate the request with an int, and when/if the SCGI library frees the request, the int will have its value set to 1.  This is done by setting the scgi_request&#8217;s int *dead field, which is NULL by default.  See <a href="http://www.xamuel.com/scgilib/helloworld.c">helloworld.c</a> for an example.</p>
+<h4>scgi_write</h4>
+<p>int scgi_write( scgi_request *req, char *txt );</p>
+<p>Tell the library what HTTP response you would like to be sent in response to the request.  This is meant to be called only once per request.  Due to the non-blocking sockets feature, the response is not instantly sent, instead it is stored.  The actual transmission of the response occurs when scgi_recv is called.  If there is no time to send the entire transmission all at once when scgi_recv is called, the library will send as much of the response as it can, and send the rest on subsequent calls to scgi_recv.</p>
+<h4>Example</h4>
+<p>For a basic example, see <a href="http://www.xamuel.com/scgilib/src/helloworld.c">helloworld.c</a>.</p>
+<h3>Instructions</h3>
+<p>There is no installation or configuration for the library itself:  just act like you wrote the .c and .h files yourself, putting them in the same location as all the other .c files in your project, etc.</p>
+<p>Of course, web browsers don&#8217;t send requests in SCGI.  You must configure your webserver to act as the middleman.  I will give instructions in Apache for now.  I have not done it in any other webserver; maybe I will add instructions for other webservers later.  You can always use a search engine and search for how to use scgi with your webbrowser.</p>
+<p>Instructions for configuring Apache 2.2 to reroute (e.g.) all traffic to /scgilib/helloworld/ to an SCGI server listening on (say) port 8000:</p>
+<ol>
+<li>First, install the mod_scgi module for Apache.</li>
+<li>Then add the following to /etc/apache2/apache2.conf (the specific config file may vary with your Apache installation):
+<ul style='list-style:none;'>
+<li>SCGIMount /scgilib/helloworld/ 127.0.0.1:8000</li>
+</ul>
+</li>
+<li>Finally, reboot Apache.</li>
+<li>Having done the above, now any time someone goes to <a href="http://www.xamuel.com/scgilib/helloworld/">http://www.xamuel.com/scgilib/helloworld/</a>, Apache takes their request, translates it into SCGI, and forwards it to the SCGI server on port 8000.  Assuming that the helloworld server is actually running, it will give a response to Apache, who will then give that to the original client.</li>
+</ol>
+<p>Sorry for the rather poor instructions section.  I can only hope that anyone actually looking for something as obscure and specific as an SCGI Library already knows what they&#8217;re doing and can figure out the rest on their own!</p>
+
+
+<div class="shr-bookmarks shr-bookmarks-expand shr-bookmarks-center shr-bookmarks-bg-enjoy">
+<ul class="socials">
+		<li class="shr-reddit">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=40&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Share this on Reddit">&nbsp;</a>
+		</li>
+		<li class="shr-delicious">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=2&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Share this on del.icio.us">&nbsp;</a>
+		</li>
+		<li class="shr-stumbleupon">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=38&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Stumble upon something good? Share it on StumbleUpon">&nbsp;</a>
+		</li>
+		<li class="shr-twitter">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=RT%2B%2540XamuelA%2B%2524%257Btitle%257D%2B%2524%257Bshort_link%257D&amp;service=7&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Tweet This!" onclick="           if(typeof(SHR_config) == 'undefined' || !SHR_config) {                window['SHR_config'] = {};            }            window['__shr_service'] = 'twitter';            window['__shr_log'] = true;            window['__shr_center'] = true;            SHR_config['shortener'] ='none';            SHR_config['shortener_key'] ='';            SHR_config['apikey'] = '8afa39428933be41f8afdb8ea21a495c';            SHR_config['twitter_template'] = 'RT+%40XamuelA+%24%7Btitle%7D+%24%7Bshort_link%7D';            SHR_config['link'] = 'http://www.xamuel.com/scgilib/';            SHR_config['title'] = 'Introducing%3A+The+SCGI+C+Library';            SHR_config['short_link'] = '';            if(!window.SHR || !window.SHR.Servicelet) {                var d = document;                var s=d.createElement('script');                s.setAttribute('language','javascript');                s.id='shr-servicelet';                s.setAttribute('src', 'http://www.shareaholic.com' + '/media/js/servicelet.min.js');                d.body.appendChild(s);            } else{                SHR.Servicelet.show();            }            return false;            ">&nbsp;</a>
+		</li>
+		<li class="shr-facebook">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=5&amp;tags=&amp;ctype=" rel="nofollow" title="Share this on Facebook" onclick="window.open(this.href,'sharer','toolbar=0,status=0,width=626,height=436'); return false;">&nbsp;</a>
+		</li>
+		<li class="shr-gmail">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=52&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Email this via Gmail">&nbsp;</a>
+		</li>
+		<li class="shr-mail">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A%20The%20SCGI%20C%20Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=201&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Email this to a friend?">&nbsp;</a>
+		</li>
+		<li class="shr-blogger">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=219&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Blog this on Blogger">&nbsp;</a>
+		</li>
+		<li class="shr-hackernews">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=202&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Submit this to Hacker News">&nbsp;</a>
+		</li>
+		<li class="shr-slashdot">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http://www.xamuel.com/scgilib/&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=61&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Submit this to SlashDot">&nbsp;</a>
+		</li>
+		<li class="shr-tumblr">
+			<a href="http://www.shareaholic.com/api/share/?title=Introducing%3A+The+SCGI+C+Library&amp;link=http%3A%2F%2Fwww.xamuel.com%2Fscgilib%2F&amp;notes=A%20year%20or%20so%20ago%2C%20I%20needed%20to%20write%20an%20SCGI%20server%20in%20C%2C%20and%20there%20weren%27t%20any%20good%20C%20libraries%20for%20doing%20so%2C%20at%20least%20none%20with%20the%20features%20I%20wanted.%20%20So%2C%20I%20wrote%20my%20own.%20%20Now%20that%20the%20library%20I%20wrote%20has%20performed%20so%20well%20and%20withstood%20over%20a%20year%27s%20worth%20of%20testing%2C%20I%27m%20making%20it%20open%20source%20and&amp;short_link=&amp;shortener=none&amp;shortener_key=&amp;v=1&amp;apitype=1&amp;apikey=8afa39428933be41f8afdb8ea21a495c&amp;source=Shareaholic&amp;template=&amp;service=78&amp;tags=&amp;ctype=" rel="nofollow" class="external" title="Share this on Tumblr">&nbsp;</a>
+		</li>
+</ul><div style="clear: both;"></div></div>
+
+<!-- Start Shareaholic Recommendations Automatic --><!-- End Shareaholic Recommendations Automatic --><g:plusone count="false"></g:plusone><div class="postmetadata">June 4, 2012</div>
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'xamuel';
+    var disqus_url = 'http://www.xamuel.com/scgilib/';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://xamuel.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>To see comments, JavaScript must be enabled.</noscript>
+
+			</div>
+
+	
+			<div class="postmetadata">
+				<div class="postmetadata">
+										Category: <a href="http://www.xamuel.com/blog/category/general/" title="View all posts in General" rel="category tag">General</a>														 </div>
+			</div>
+			
+		</div>
+	
+<!-- You can start editing here. -->
+
+<div id="comments">
+
+
+	
+
+
+</div>
+
+
+	
+	</div>
+
+	<div id="sidebar">
+		<ul>
+			
+					<li id="recent-posts-3" class="widget widget_recent_entries">		<h2 class="widgettitle">Recent Articles</h2>
+		<ul>
+				<li>&raquo;<a href="http://www.xamuel.com/announcing-poral/" title="Announcing PORAL: The Patterns of Resemblance Arithmetic Library (in C)">Announcing PORAL: The Patterns of Resemblance Arithmetic Library (in C)</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/dangerous-graphs/" title="Dangerous graphs">Dangerous graphs</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/contours-and-tight-clusters-blogpost/" title="Paper: Contours and Tight Clusters">Paper: Contours and Tight Clusters</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/how-to-follow-lots-of-journals/" title="How to follow lots of academic journals">How to follow lots of academic journals</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/undeadline-announcement/" title="Announcing: Undeadline">Announcing: Undeadline</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/arie-almost-linear/" title="ARIE (Almost lineaR algorIthm for undirparEnts)">ARIE (Almost lineaR algorIthm for undirparEnts)</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/constant-time-3-sat/" title="A TSP solver that may run in constant time (as far as ZFC knows)">A TSP solver that may run in constant time (as far as ZFC knows)</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/thoughts-on-teaching-emphasize-content-not-section-numbers/" title="Thoughts on teaching: emphasize content, not section numbers">Thoughts on teaching: emphasize content, not section numbers</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/netherlands-fireworks/" title="Fireworks in the Netherlands">Fireworks in the Netherlands</a></li>
+				<li>&raquo;<a href="http://www.xamuel.com/examples-of-campbells-law/" title="Examples of Campbell&#8217;s Law">Examples of Campbell&#8217;s Law</a></li>
+				</ul>
+		</li>
+<li id="text-10" class="widget widget_text"><h2 class="widgettitle">Most Recent Linkfest</h2>
+			<div class="textwidget">» <a href="http://www.xamuel.com/linkfest-15/">Fifteenth Linkfest</a></div>
+		</li>
+<li id="text-4" class="widget widget_text">			<div class="textwidget">» <a href="http://www.xamuel.com/glowing-sitemap/">View All Articles</a></div>
+		</li>
+<li id="text-3" class="widget widget_text">			<div class="textwidget">&raquo; <a href="mailto:alexander@math.ohio-state.edu">Contact</a></div>
+		</li>
+<li id="text-9" class="widget widget_text">			<div class="textwidget">&raquo; <a href="http://www.semitrivial.com/research/">My Academic Publications</a></div>
+		</li>
+<li id="text-7" class="widget widget_text">			<div class="textwidget">&raquo; <a href='http://twitter.com/XamuelA' target='_blank'>Follow Me On Twitter</a>
+</div>
+		</li>
+<li id="text-8" class="widget widget_text">			<div class="textwidget">&raquo; Donate Bitcoins!
+<br/>
+&raquo; My Bitcoin address is:<br/>
+<center>
+<input type="text" size="8" value="19KmmR31vECcqEBC7YHSZ7JZXmrinTTssM"/ onClick="this.focus(); this.select();" readonly></center></div>
+		</li>
+		</ul>
+	</div>
+
+</div> <!-- wrapper -->
+<div id="footer">
+	Click <a href="http://www.xamuel.com/feed/">here</a> to subscribe to the RSS feed.<br /><a href="http://www.xamuel.com/privacy-policy/">Privacy Policy</a><br />
+	<!-- 19 queries. 0.103 seconds. -->
+	<script type='text/javascript' src='http://www.xamuel.com/blog/wp-content/plugins/sexybookmarks/js/sexy-bookmarks-public.min.js?ver=6.1.3.4'></script>
+</div>
+</div> <!-- page -->
+
+<script type='text/javascript'>
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+<script type='text/javascript'>
+var pageTracker = _gat._getTracker("UA-3309778-11");
+pageTracker._initData();
+pageTracker._trackPageview();
+</script>
+</body>
+</html>
+	

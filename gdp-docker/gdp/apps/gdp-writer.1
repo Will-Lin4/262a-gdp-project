@@ -1,0 +1,144 @@
+.Dd October 4, 2015
+.Dt GDP-WRITER 1
+.Os Swarm-GDP
+.Sh NAME
+.Nm gdp-writer
+.Nd write to a GDP log
+.Sh SYNOPSIS
+.Nm
+.Op Fl 1
+.Op Fl a
+.Op Fl D Ar debug-spec
+.Op Fl G Ar router-ip
+.Op Fl i
+.Op Fl K Ar key-file
+.Op Fl L Ar log-file
+.Op Fl q
+.Op Fl S
+.Ar log-name
+.Sh DESCRIPTION
+.Nm
+reads data from the standard input and writes it to the GDP log
+.Ar log-name .
+The log must already exist.
+Each line read from the standard input becomes one record in the log.
+.Pp
+If the log has a public key included in the metadata
+(see
+.Xr gcl-create 8 )
+then
+.Nm
+will try to find a corresponding secret key in the filesystem.
+It searches for a file named with the internal (256 bit) name of the log
+as represented in
+base64url
+format with a
+.Sy \&.pem
+file extension containing the secret key
+and uses that for signing writes.
+See the description of the
+.Sy swarm.gdp.crypto.key.path
+parameter in
+.Sx ADMINISTRATIVE PARAMETERS
+for details on the search path.
+This search can be overridden using the
+.Fl K
+flag.
+.Sh OPTIONS
+.Bl -tag
+.It Fl 1
+Normally
+.Nm
+reads lines from standard input and writes each line as a record
+with the newline stripped.
+The
+.Fl 1
+flag reads the entire standard input (to an end of file)
+and writes it all as a single record.
+This can be used to log binary input or input with newlines
+(albeit not terribly efficiently if multiple records need to be written).
+.It Fl a
+Use asynchronous writes.
+This is primarily for testing.
+.It Fl D Ar debug-spec
+Turn on debugging flags using the libep-style format.
+Only useful with code in hand.
+.It Fl G Ar router-ip
+Contact the given IP address (which may be a DNS name)
+to get a connection to the GDP routing layer.
+This will be replaced by automatic discovery
+(for example, using Zeroconf)
+soon.
+The address may have an optional port number after a colon.
+If this is not specified,
+the names listed in the
+.Va swarm.gdp.routers
+runtime administrative parameter
+are searched.
+.It Fl i
+Print errors on append, but continue to accept input.
+This is mostly useful for debugging.
+.It Fl K Ar key-file
+Names the file containing the secret key to be used for signing.
+This must be a
+.Sy \&.pem
+format file.
+This overrides the default search path.
+.It Fl L Ar log-file
+If set, write a very simplistic performance log to the given
+.Ar log-file .
+This can be used together with the companion flag on
+.Xr gdp-reader 1
+to produce crude round-trip performance numbers.
+.It Fl q
+Run quietly, suppressing all output that isn't error text.
+.
+.It Fl S
+Normally
+.Nm
+will refuse to open a log for writing
+if it cannot find a corresponding secret key.
+The
+.Fl S
+flag allows it to proceed with a warning.
+This is only useful if the log server hosting the log
+is configured to allow signature mismatches.
+.
+.El
+.
+.Sh EXIT STATUS
+.Bl -tag
+.It Li EX_OK No (0)
+Success.
+.It Li EX_CANTCREAT No (73)
+Output log could not be opened.
+.It Li EX_SOFTWARE No (70)
+Severe internal error.
+.It Li EX_UNAVAILABLE No (69)
+Other unspecified error occurred.
+.It Li EX_USAGE No (64)
+Error in command line parameters.
+.El
+.
+.Sh ADMINISTRATIVE PARAMETERS
+.Bl -tag
+.It Sy swarm.gdp.crypto.key.path
+Controls the search path for secret keys.
+Defaults to:
+.Bd -unfilled -offset indent -compact
+\&.
+KEYS
+~/.swarm/gdp/keys
+/usr/local/etc/gdp/keys
+/usr/local/etc/swarm/gdp/keys
+/etc/gdp/keys
+/etc/swarm/gdp/keys
+.Ed
+.El
+.\".Sh ENVIRONMENT
+.\".Sh FILES
+.Sh SEE ALSO
+.Xr gdp-reader 1 ,
+.Xr gcl-create 8
+.\".Sh EXAMPLES
+.\".Sh BUGS

@@ -1,0 +1,52 @@
+<html>
+<head><title>RESTful Demo - HTTPS/TCP Session Setup and Teardown Expense</title></head>
+<body>
+<pre>
+#!/usr/bin/env python
+
+# The RESTful GDP Gateway's HTTPS/TCP Session Setup and Teardown is expensive.
+#
+# A single read or append per session (as shown in this script) has relatively
+# low performance and high latency.
+#
+# Where multiple reads or appends are needed, performance and latency are
+# significantly improved by amortizing a single HTTPS/TCP session over
+# multiple actions (see restful_demo_session_amortized.html).
+
+import json
+import requests
+import time
+import random
+import sys
+
+test_auth = ("PLEASE_EDIT_username", "PLEASE_EDIT_password")
+json_header = { 'Content-type': 'application/json' }
+
+def GDPwrite(data, gcl_name):
+    
+    start_time = time.time()
+    wrec = requests.post("https://gdp-rest-01.eecs.berkeley.edu/gdp/v1/gcl/" +
+                         gcl_name,
+                         auth = test_auth,
+                         timeout = 60,
+                         headers = json_header,
+                         data = data) # serialize json_body
+
+    success =  wrec.status_code == 200
+    end_time = time.time()
+    return (end_time - start_time, success)
+
+if __name__=="__main__":
+
+    if len(sys.argv)<2:
+        sys.stderr.write("Usage: %s <logname>\n" % sys.argv[0])
+        sys.exit(-1)
+
+    logname = sys.argv[1]
+    for i in xrange(10):
+        random_data = str(random.randint(0, 2**32))
+        print GDPwrite(random_data, logname)
+
+</pre>
+</body>
+</html>

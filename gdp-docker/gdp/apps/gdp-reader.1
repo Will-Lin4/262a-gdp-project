@@ -1,0 +1,220 @@
+.Dd October 5, 2015
+.Dt GDP-READER 1
+.Os Swarm-GDP
+.Sh NAME
+.Nm gdp-reader
+.Nd read from a GDP log
+.Sh SYNOPSIS
+.Nm
+.Op Fl a
+.Op Fl b
+.Op Fl c
+.Op Fl d Ar start-time
+.Op Fl D Ar debug-spec
+.Op Fl f Ar first-recno
+.Op Fl G Ar router-ip
+.Op Fl L Ar log-file
+.Op Fl m
+.Op Fl M
+.Op Fl n Ar n-recs
+.Op Fl o Ar output-file
+.Op Fl q
+.Op Fl s
+.Op Fl t
+.Op Fl v
+.Op Fl V
+.Ar log-name
+.
+.Sh DESCRIPTION
+.Nm
+reads from the GDP log
+.Ar log-name
+and displays the output to the standard output.
+.
+.Sh OPTIONS
+.Bl -tag
+.
+.It Fl a
+Use asynchronous reads.
+This issues a number of multireads of length 1
+and then collects the results.
+.Fl a
+is incompatible with
+.Fl d ,
+.Fl m ,
+and
+.Fl s .
+.
+.It Fl b
+Output records as binary.
+This is generally only useful in conjunction with the
+.Fl o
+and
+.Fl q
+flags.
+.
+.It Fl c
+Use asynchronous callbacks when doing multi-record reads
+(multireads or subscriptions).
+Normally the data records are processed using synchronous events.
+.
+.It Fl d Ar start-time
+Start reading from timestamps no earlier than the indicated
+.Ar start-time .
+This is incompatible with the
+.Fl a ,
+.Fl f ,
+.Fl m ,
+and
+.Fl s
+flags.
+.
+.It Fl D Ar debug-spec
+Turn on debugging flags using the libep-style format.
+Useful only with the code in hand.
+.
+.It Fl f Ar first-recno
+Start reading from
+.Ar first-recno .
+The default is to read starting from the first record,
+except when using subscriptions, when the default is to read
+starting from the first new data added to the log.
+Negative numbers can be specified to indicate offsets from the tail of the log;
+for example
+.Fl f
+\-2
+prints starting from the next-to-last record in the log.
+This is incompatible with the
+.Fl d
+flag.
+.
+.It Fl G Ar router-ip
+Contact the given IP address (which may be a DNS name)
+to get a connection to the GDP routing layer.
+This will be replaced by automatic discovery
+(for example, using Zeroconf)
+soon.
+The address may have an optional port number after a colon.
+If this is not specified,
+the names listed in the
+.Va swarm.gdp.routers
+runtime administrative parameter
+are searched.
+.
+.It Fl L Ar log-file
+If set, write a very simplistic performance log to the given
+.Ar log-file .
+This can be used together with the companion flag on
+.Xr gdp-writer 1
+to produce crude round-trip performance numbers.
+.
+.It Fl m
+Use multiread to collect results.
+Multiread issues a single command that produces multiple results.
+The default is to many read commands, each of which returns a single value.
+.Fl m
+is incompatible with
+.Fl a ,
+.Fl d ,
+and
+.Fl s
+flags.
+.
+.It Fl M
+Show the log metadata before showing results.
+.
+.It Fl n Ar n-recs
+Only show
+.Ar n-recs
+worth of data and then terminate.
+The default is to show all existing data
+except when using subscriptions,
+where the default is to run until the process is manually killed.
+.
+.It Fl o Ar output-file
+Send data output to the indicated file.
+.
+.It Fl q
+Don't print metadata, such as the record number and timestamp.
+Together with
+.Fl t
+this will print nothing but the raw data in the log.
+.
+.It Fl s
+Use subscriptions to show the data.
+This also changes the default first record to show to be the next record added,
+i.e., only show newly added records
+(settable using
+.Fl f )
+and changes the number of records to read to be infinite
+(settable using
+.Fl n ).
+If the first record specified already exists (e.g., using
+.Fl f
+1
+to print starting from the first record)
+the subscriptions starts as though it were a multiread
+and then converts to a subscription.
+For example,
+.Nm
+.Fl s
+.Fl f
+\-2
+.Fl n
+5
+prints the last two records in a log
+and then the next three that arrive.
+.Pp
+The
+.Fl s
+flag is incompatible with the
+.Fl a ,
+.Fl d ,
+and
+.Fl m
+flags.
+.
+.It Fl t
+Print returned data as text.
+Normally it is printed as a hexadecimal dump,
+but with the character version also shown.
+.
+.It Fl v
+Print verbose output.
+This shows signature information as well as the data.
+.
+.It Fl V
+Verify data correctness.
+This gives an error if the data does not validate,
+either by the hash chain or the digital signature.
+.
+.El
+.
+.Pp
+Only one of the
+.Fl a ,
+.Fl m ,
+and
+.Fl s
+flags may be specified.
+.
+.Sh EXIT STATUS
+.Bl -tag
+.It Li EX_OK No (0) 
+.It Li EX_NOINPUT No (66)
+The log to be read did not exist or was not reachable.
+.It Li EX_SOFTWARE No (70)
+Severe internal error.
+.It Li EX_UNAVAILABLE No (69)
+Other unspecified error.
+.It Li EX_USAGE No (64)
+Error in command line parameters.
+.El
+.
+.\".Sh ADMINISTRATIVE PARAMETERS
+.\".Sh ENVIRONMENT
+.\".Sh FILES
+.Sh SEE ALSO
+.Xr gdp-writer 1
+.\".Sh EXAMPLES
+.\".Sh BUGS

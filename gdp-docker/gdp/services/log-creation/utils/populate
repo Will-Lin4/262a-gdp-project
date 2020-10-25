@@ -1,0 +1,30 @@
+-- Assumes that a database already has been created with a short run of
+-- the log-creation service, and that the logs on each log-server are
+-- stored in /tmp/gdp-0{1,2,3,4}.logs (by invoking find-duplicate-logs.sh).
+-- Run it using sqlite3 dbname.db < populate
+.separator |
+create table gdp01(logname);
+.import /tmp/gdp-01.logs gdp01
+insert into logs(logname) select logname from gdp01;
+update logs set srvname='HKf741rKUdqvQXNVcMx4qeCvzApH_BLq2MiJg9xNakQ' where ack_seen=0;
+update logs set ack_seen=1;
+create table gdp02(logname);
+.import /tmp/gdp-02.logs gdp02
+insert into logs(logname) select logname from gdp02;
+update logs set srvname='pU83yVwyZWX4WinKkz3FlKjW_7gKxqPzDm4N5e6jem8' where ack_seen=0;
+update logs set ack_seen=1;
+create table gdp03(logname);
+.import /tmp/gdp-03.logs gdp03
+insert into logs(logname) select logname from gdp03;
+update logs set srvname='VIPjoY93P6oJfSWy6eck6mVNer_JmRUzaV2rzhZt_oY' where ack_seen=0;
+update logs set ack_seen=1;
+create table gdp04(logname);
+.import /tmp/gdp-04.logs gdp04
+insert into logs(logname) select logname from gdp04;
+update logs set srvname='d755ebrJvcwTdYDKIl3eJloeQKA314wbylMNuOM74EQ' where ack_seen=0;
+update logs set ack_seen=1;
+drop table gdp01;
+drop table gdp02;
+drop table gdp03;
+drop table gdp04;
+.exit
