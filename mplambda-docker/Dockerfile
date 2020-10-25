@@ -1,7 +1,7 @@
 FROM ubuntu:bionic
 WORKDIR /root/
-RUN apt update
-RUN apt install -y git build-essential cmake libassimp-dev libatomic1 pkg-config libcurl4-openssl-dev zlib1g-dev libssl-dev
+RUN apt update && \
+    apt install -y git build-essential cmake libassimp-dev libatomic1 pkg-config libcurl4-openssl-dev zlib1g-dev libssl-dev
 
 COPY eigen-3.3.7 eigen
 WORKDIR eigen
@@ -29,57 +29,70 @@ RUN make -j 8
 RUN make install
 WORKDIR /root
 
-COPY aws-lambda-cpp aws-lambda-cpp
-WORKDIR aws-lambda-cpp
-RUN mkdir build
-WORKDIR build
-RUN cmake .. -DCMAKE_BUILD_TYPE=Release
-RUN make -j 8
-RUN make install
-WORKDIR /root
-
-COPY aws-c-common aws-c-common
-WORKDIR aws-c-common
-RUN mkdir build
-WORKDIR build
-RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
-RUN make -j 8
-RUN make install
-WORKDIR /root
-
-COPY aws-checksums aws-checksums
-WORKDIR aws-checksums
-RUN mkdir build
-WORKDIR build
-RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
-RUN make -j 8
-RUN make install
-WORKDIR /root
-
-COPY aws-c-event-stream aws-c-event-stream
-WORKDIR aws-c-event-stream
-RUN mkdir build
-WORKDIR build
-RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
-RUN make -j 8
-RUN make install
-WORKDIR /root
-
-COPY aws-sdk-cpp aws-sdk-cpp
-WORKDIR aws-sdk-cpp
-RUN mkdir build
-WORKDIR build
-RUN cmake .. -DBUILD_ONLY="s3;lambda" -DENABLE_UNITY_BUILD=ON -DCMAKE_BUILD_TYPE=Release
-RUN make -j 8
-RUN make install
-WORKDIR /root
-
 COPY nigh nigh
-COPY mplambda mplambda
 
+#uncomment below for aws lambda support
+
+#COPY aws-lambda-cpp aws-lambda-cpp
+#WORKDIR aws-lambda-cpp
+#RUN mkdir build
+#WORKDIR build
+#RUN cmake .. -DCMAKE_BUILD_TYPE=Release
+#RUN make -j 8
+#RUN make install
+#WORKDIR /root
+#
+#COPY aws-c-common aws-c-common
+#WORKDIR aws-c-common
+#RUN mkdir build
+#WORKDIR build
+#RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
+#RUN make -j 8
+#RUN make install
+#WORKDIR /root
+#
+#COPY aws-checksums aws-checksums
+#WORKDIR aws-checksums
+#RUN mkdir build
+#WORKDIR build
+#RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
+#RUN make -j 8
+#RUN make install
+#WORKDIR /root
+#
+#COPY aws-c-event-stream aws-c-event-stream
+#WORKDIR aws-c-event-stream
+#RUN mkdir build
+#WORKDIR build
+#RUN cmake .. -DCMAKE_MODULE_PATH=/usr/local/lib/cmake/
+#RUN make -j 8
+#RUN make install
+#WORKDIR /root
+#
+#COPY aws-sdk-cpp aws-sdk-cpp
+#WORKDIR aws-sdk-cpp
+#RUN mkdir build
+#WORKDIR build
+#RUN cmake .. -DBUILD_ONLY="s3;lambda" -DENABLE_UNITY_BUILD=ON -DCMAKE_BUILD_TYPE=Release
+#RUN make -j 8
+#RUN make install
+#WORKDIR /root
+#
+#RUN rm -rf aws-c-common
+#RUN rm -rf aws-c-event-stream
+#RUN rm -rf aws-checksums
+#RUN rm -rf aws-lambda-cpp
+#RUN rm -rf aws-sdk-cpp
+#RUN rm -rf eigen
+#RUN rm -rf fcl
+#RUN rm -rf libccd
+
+COPY mplambda mplambda
 WORKDIR mplambda
-RUN mkdir -p build/Debug
-WORKDIR build/Debug
-RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig cmake -DCMAKE_BUILD_TYPE=Debug ../..
+RUN mkdir build
+WORKDIR build
+#uncomment below for aws lambda support and replace the uncommented cmake command
+#RUN cmake ..
+RUN cmake -DAPPLE=1 ..
 RUN make -j 8 
 
