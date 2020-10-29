@@ -44,7 +44,12 @@ int main(int argc, char * argv[])
 
 
 		EP_STAT estat;
-		estat = gdp_init(nullptr);
+		estat = gdp_init("gdp-03.eecs.berkeley.edu:8007");
+		if (!EP_STAT_ISOK(estat))
+		{
+			ep_app_error("GDP Initialization failed");
+			return -1;
+		}
 
 		gdp_gin_t * start_gin = nullptr;	// GDP object instance
 		gdp_gin_t * final_gin = nullptr;	// GDP object instance
@@ -63,8 +68,32 @@ int main(int argc, char * argv[])
 		//gdp_buf_write(dbuf, buf, l);
 		gdp_buf_printf(dbuf, "%s", buf);
 
+		string start_name = client.get_start_name();
+		gdp_name_t start_iname;
+		gdp_parse_name(start_name.c_str(), start_iname);
+		string final_name = client.get_final_name();
+		gdp_name_t final_iname;
+		gdp_parse_name(final_name.c_str(), final_iname);
+		
+		// Open GIN for writing
+		estat = gdp_gin_open(start_iname, GDP_MODE_AO, NULL, &start_gin);
+		if (!EP_STAT_ISOK(estat))
+		{
+			std::cout << "Failed to open GDP log" << std::endl;
+			char ebuf[100];
+			ep_app_error("%s", ep_stat_tostr(estat, ebuf, sizeof ebuf));
+			exit -1;
+		}
+
 		//estat = write_record(datum, start_gin);
-		client.write_to_capsule(datum, start_gin);
+		estat = gdp_gin_append(start_gin, datum, NULL);
+		if (!EP_STAT_ISOK(estat))
+		{
+			std::cout << "Write failed" << std::endl;
+			char ebuf[100];
+			ep_app_error("%s", ep_stat_tostr(estat, ebuf, sizeof ebuf));
+		}
+		//client.write_to_capsule(datum, start_gin);
 
 		//client.write
 		gdp_datum_free(datum);

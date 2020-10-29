@@ -39,6 +39,10 @@
 **  At the moment this wraps openssl, but we could conceivably
 **  in the future switch to another package, e.g., NaCl.
 */
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 
 __BEGIN_DECLS
 
@@ -363,5 +367,9 @@ EP_STAT			_ep_crypto_error(
 //#endif
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif // _EP_CRYPTO_H_

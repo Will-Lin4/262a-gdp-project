@@ -58,6 +58,7 @@
 **	eplib-registry (AT) neophilic.com.
 **
 ***********************************************************************/
+extern "C"{
 
 #define EP_REGISTRY_GENERIC		0x000	// reserved for generic codes
 #define EP_REGISTRY_USER		0x001	// reserved for user apps
@@ -66,3 +67,4 @@
 #define EP_REGISTRY_NEOPHILIC		0x101	// Neophilic Systems
 #define EP_REGISTRY_SENDMAIL		0x102	// Sendmail, Inc.
 #define EP_REGISTRY_UCB			0x103	// U.C. Berkeley
+}

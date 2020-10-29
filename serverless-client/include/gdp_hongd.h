@@ -38,6 +38,10 @@
 #ifndef _GDP_HONGD_H_
 #define _GDP_HONGD_H_
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 #include <mysql.h>
 
 #ifndef GDP_DEFAULT_HONGD_HOST
@@ -75,4 +79,8 @@ EP_STAT			_gdp_name_init(				// initialize name resolution
 MYSQL			*_gdp_hongd_conn_open(		// open a MariaDB/MySQL connection
 					struct hongdargs *);
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif // _GDP_HONGD_H_

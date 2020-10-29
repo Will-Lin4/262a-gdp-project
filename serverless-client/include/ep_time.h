@@ -32,6 +32,10 @@
 #define _EP_TIME_H_
 
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 #include <time.h>
@@ -169,4 +173,8 @@ extern EP_STAT	ep_time_nanosleep(int64_t);
 #define EP_TIME_INVALIDATE(ts)	((ts)->tv_sec = EP_TIME_NOTIME)
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif //_EP_TIME_H_

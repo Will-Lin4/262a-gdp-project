@@ -54,6 +54,11 @@
 #include <ep/ep_assert.h>
 #include <ep/ep_stat.h>
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
+
 //XXX hacks for non-libep settings
 #define EP_SRC_ID(x)
 
@@ -125,5 +130,9 @@ extern size_t		ep_fwrite_unlocked(	// unlocked version of fwrite
 				FILE *fp);		// file to write
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif // _EP_H_

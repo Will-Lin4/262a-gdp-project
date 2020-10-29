@@ -31,6 +31,10 @@
 #ifndef _EP_STRING_H_
 #define _EP_STRING_H_
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 #include <string.h>
@@ -122,4 +126,8 @@ extern size_t	ep_str_lcpyn(char *dst, size_t siz, ...);
 extern size_t	ep_str_lcatn(char *dst, size_t siz, ...);
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif /* _EP_STRING_H_ */

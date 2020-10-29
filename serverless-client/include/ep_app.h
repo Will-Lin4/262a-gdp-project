@@ -33,6 +33,11 @@
 # include <ep/ep.h>
 # include <stdlib.h>
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
+
 __BEGIN_DECLS
 
 extern void EP_TYPE_PRINTFLIKE(1, 2)
@@ -68,6 +73,10 @@ extern void		ep_app_setflags(uint32_t flags);
 #define EP_APP_FLAG_LOG_OK		0x00000040	// log OK messages
 	// pseudo (doesn't have an associated log severity)
 #define EP_APP_FLAG_LOG_INFO		0x00000040	// log ep_app_info
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 __END_DECLS
 

@@ -38,6 +38,10 @@
 #define _EP_FUNCLIST_H_
 
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 // the function list itself (contents are private)
@@ -60,4 +64,8 @@ extern void		ep_funclist_invoke(
 				void *arg);
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif //_EP_FUNCLIST_H_

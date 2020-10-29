@@ -88,6 +88,11 @@
 
 __BEGIN_DECLS
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
+
 #if !_EP_CCCF_ASSERT_NONE
 
 // assert that an expression must be true
@@ -174,5 +179,9 @@ extern bool	EpAssertAllAbort;		// abort on all assertions
 #define EP_ASSERT_INVARIANT(e)		EP_ASSERT(e)
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif /*_EP_ASSERT_H_*/

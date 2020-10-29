@@ -45,7 +45,6 @@ private:
 	std::clock_t current_time;
 	std::vector<std::string> params;
 	bool verbose_mode;
-	int png_seed;
 public:
 	/*---------------------------------------------------------------------
 	  Constructor
@@ -58,13 +57,49 @@ public:
 		bool verbose = false, 
 		int png_seed_val = 0)
 	{
-		start_bucket_name = initbucket;
-		final_bucket_name = finalbucket;
 		client_name = name_of_client;
 
 		verbose_mode = verbose;
 
-		png_seed = png_seed_val;
+		// Initialize
+		EP_STAT estat;
+		estat = gdp_init("gdp-03.eecs.berkeley.edu");
+		if (!EP_STAT_ISOK(estat))
+		{
+			ep_app_error("GDP Initialization failed");
+		}
+		// Create bucket names
+		if (png_seed_val != 0)
+			srand(png_seed_val);
+		std::string start_bucket_name = initbucket + std::to_string(rand());
+		std::string final_bucket_name = finalbucket + std::to_string(rand());
+		start_bucket_name.resize(GDP_HUMAN_NAME_MAX);
+		final_bucket_name.resize(GDP_HUMAN_NAME_MAX);
+		const char * sname_c = start_bucket_name.c_str();
+		const char * fname_c = final_bucket_name.c_str();
+		if (verbose_mode)
+		{
+			std::cout << "Start name: " << sname_c << std::endl;
+			std::cout << "Final name: " << fname_c << std::endl;
+		}
+		// Check names
+		gdp_name_t start_gdpname;
+		estat = gdp_parse_name(sname_c, start_gdpname);
+		if (verbose_mode && !EP_STAT_ISOK(estat))
+		{
+			std::cout << "Error with name: " << start_gdpname << std::endl;
+		}
+		gdp_name_t final_gdpname;
+		estat = gdp_parse_name(fname_c, final_gdpname);
+		if (verbose_mode && !EP_STAT_ISOK(estat))
+		{
+			std::cout << "Error with name: " << final_gdpname << std::endl;
+		}
+	}
+
+	~ServerlessClient()
+	{
+
 	}
 
 	/*---------------------------------------------------------------------
@@ -127,36 +162,6 @@ public:
 	{
 		// Create the GDP Capsule names
 		EP_STAT estat;
-		if (png_seed != 0)
-			srand(png_seed);
-		std::string sname = start_bucket_name + std::to_string(rand());
-		std::string fname = final_bucket_name + std::to_string(rand());
-		sname.resize(GDP_HUMAN_NAME_MAX);
-		fname.resize(GDP_HUMAN_NAME_MAX);
-		const char * start_gdpxname = sname.c_str();
-		const char * final_gdpxname = fname.c_str();
-		if (verbose_mode)
-		{
-			std::cout << "Start name: " << sname << std::endl;
-			std::cout << "Final name: " << fname << std::endl;
-		}
-		
-		gdp_name_t start_gdpname;
-		gdp_name_t final_gdpname;
-		
-		// Check names
-		estat = gdp_parse_name(start_gdpxname, start_gdpname);
-		if (verbose_mode && !EP_STAT_ISOK(estat))
-		{
-			std::cout << "Error with name: " << start_gdpxname << std::endl;
-			return estat;
-		}
-		estat = gdp_parse_name(final_gdpxname, final_gdpname);
-		if (verbose_mode && !EP_STAT_ISOK(estat))
-		{
-			std::cout << "Error with name: " << final_gdpxname << std::endl;
-			return estat;
-		}
 
 		// Create the metadata objects if needed
 		if (start_info == nullptr)
@@ -175,6 +180,9 @@ public:
 			"edu.berkeley.eecs.gdp.service.creation");
 		gdp_create_info_set_creation_service(final_info, 
 			"edu.berkeley.eecs.gdp.service.creation");
+
+		const char * start_gdpxname = start_bucket_name.c_str();
+		const char * final_gdpxname = final_bucket_name.c_str();
 
 		// Create the DataCapsules
 		estat = gdp_gin_create(start_info, start_gdpxname, &start_instance);
@@ -197,6 +205,8 @@ public:
 		return estat;
 	}
 	
+	std::string get_start_name() { return start_bucket_name; }
+	std::string get_final_name() { return final_bucket_name; }
 
 	/*---------------------------------------------------------------------
 	  subscribe_to_final
@@ -222,7 +232,6 @@ public:
 		
 		return estat;
 	}
-
 };
 
 #endif

@@ -31,6 +31,10 @@
 #ifndef _EP_PRFLAGS_H_
 #define _EP_PRFLAGS_H_
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 typedef struct ep_prflags_desc
@@ -46,4 +50,8 @@ extern void	ep_prflags(
 			FILE			*outfile);
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif // _EP_PRFLAGS_H_

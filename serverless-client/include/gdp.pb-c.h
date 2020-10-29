@@ -6,6 +6,10 @@
 
 #include <protobuf-c/protobuf-c.h>
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 PROTOBUF_C__BEGIN_DECLS
 
 #if PROTOBUF_C_VERSION_NUMBER < 1000000
@@ -1059,5 +1063,9 @@ extern const ProtobufCMessageDescriptor gdp_datum_list__descriptor;
 
 PROTOBUF_C__END_DECLS
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif  /* PROTOBUF_C_gdp_2eproto__INCLUDED */

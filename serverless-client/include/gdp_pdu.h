@@ -37,6 +37,10 @@
 #include <event2/buffer.h>
 #include "gdp_priv.h"
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 #define GDP_PROTO_CUR_VERSION	3		// current protocol version
 #define GDP_PROTO_MIN_VERSION	2		// min version we can accept
 
@@ -269,5 +273,9 @@ union sockaddr_xx
 	struct sockaddr_in	sin;
 	struct sockaddr_in6 sin6;
 };
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif // _GDP_PDU_H_

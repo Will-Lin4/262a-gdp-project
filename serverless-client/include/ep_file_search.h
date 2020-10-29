@@ -31,6 +31,10 @@
 #ifndef _EP_FILE_SEARCH_H_
 #define _EP_FILE_SEARCH_H_
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 /*
@@ -45,4 +49,8 @@ extern EP_STAT	ep_file_search(
 			char *fnbuf);			// output buffer
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif // _EP_FILE_SEARCH_H_

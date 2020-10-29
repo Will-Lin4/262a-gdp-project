@@ -31,6 +31,10 @@
 #ifndef _EP_SYSLOG_H_
 #define _EP_SYSLOG_H_	1
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 #include <syslog.h>
@@ -45,4 +49,8 @@ const char	*ep_syslog_name_from_fac(	// get name by facility
 			int fac);
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif // _EP_SYSLOG_H_

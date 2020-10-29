@@ -34,6 +34,10 @@
 */
 
 #include <ep/ep_stat.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 
 extern void		_gdp_stat_init(void);
 
@@ -238,3 +242,8 @@ EP_STAT					_gdp_stat_from_acknak(int acknak);
 #define GDP_STAT_IS_R_NAK(estat)	(GDP_STAT_IS_GDP(estat) && \
 									 EP_STAT_DETAIL(estat) >= 600 && \
 									 EP_STAT_DETAIL(estat) <= 699)
+
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------

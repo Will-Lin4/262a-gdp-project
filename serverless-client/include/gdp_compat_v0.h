@@ -33,6 +33,10 @@
 #ifndef _GDP_COMPAT_V0_H_
 #define _GDP_COMPAT_V0_H_
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 /*
 **  Simple substitutions (name changes)
 */
@@ -98,5 +102,9 @@
 #define gdp_gcl_subscribe_ts(gcl, start, nrecs, timeout, cbfunc, cbarg)		\
 				gdp_gin_subscribe_by_rs(gcl, start, nrecs, NULL, cbfunc, cbarg)
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif // _GDP_COMPAT_V0_H_

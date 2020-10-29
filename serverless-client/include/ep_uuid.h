@@ -31,6 +31,10 @@
 #ifndef _EP_UUID_H_
 #define _EP_UUID_H_
 __BEGIN_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 
 // manifest constants
 #define EP_UUID_INTERNAL	0	// use internal algorithm
@@ -101,4 +105,8 @@ extern bool	ep_uuid_equal(			// test if UUIDs are identical
 			EP_UUID *u2);
 
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif //_EP_UUID_H_

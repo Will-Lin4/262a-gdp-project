@@ -28,6 +28,10 @@
 **  ----- END LICENSE BLOCK -----
 */
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 #define EP_OSCF_USE_ZEROCONF		0	// force zeroconf off for now
 
 #ifndef EP_OSCF_USE_ZEROCONF
@@ -66,5 +70,9 @@ char *gdp_zc_addr_str(zcinfo_t **list);
 int gdp_zc_free_infolist(zcinfo_t **list);
 
 #endif // GDP_OSCF_USE_ZEROCONF
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 /* vim: set noexpandtab : */

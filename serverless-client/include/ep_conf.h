@@ -92,6 +92,10 @@
 **	This is the fallback version (if none other found)
 **	(Actually, currently hacked to work on my development platforms)
 */
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 
 # ifndef EP_OSCF_USE_PTHREADS
 #  define EP_OSCF_USE_PTHREADS		1
@@ -249,5 +253,9 @@
 #else
 #  define EP_ATTR_DEPRECATED
 #endif
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 
 #endif // _EP_CONF_H_

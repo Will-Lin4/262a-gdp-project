@@ -44,6 +44,10 @@
 */
 
 
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 struct metadatum
 {
 	gdp_md_id_t			md_id;			// identifier (uint32_t)
@@ -94,3 +98,8 @@ EP_STAT			_gdp_md_to_gdpname(
 					const gdp_md_t *gmd,		// in-memory metadata
 					gdp_name_t *gname_p,		// GDPname result buffer
 					uint8_t **serialized_md_p);	// serialized MD output
+
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------

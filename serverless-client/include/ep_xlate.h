@@ -32,6 +32,10 @@
 #define _EP_XLATE_H_
 
 #include <ep/ep.h>
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+extern "C"{
+//------------------------------------------------------------------------------
 __BEGIN_DECLS
 
 #define EP_XLATE_PERCENT	0x00000001	// translate %xx like SMTP/URLs
@@ -56,4 +60,8 @@ extern int	ep_xlate_out(
 			const char *forbid,
 			uint32_t how);
 __END_DECLS
+//------------------------------------------------------------------------------
+//	Added for C++ compability
+}
+//------------------------------------------------------------------------------
 #endif // _EP_XLATE_H_
