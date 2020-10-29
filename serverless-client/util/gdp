@@ -1,0 +1,5 @@
+swarm.gdp.routers=gdp-03.eecs.berkeley.edu;gdp-01.eecs.berkeley.edu
+swarm.gdp.hongdb.host=gdp-hongd.cs.berkeley.edu
+#libep.time.accuracy=0.5
+#libep.thr.mutex.type=errorcheck
+libep.dbg.file=stdout

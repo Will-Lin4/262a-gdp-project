@@ -1,0 +1,25 @@
+#######################################################################
+##
+##  FastCGI Module
+## ---------------
+##
+## http://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_ModFastCGI
+##
+
+#debug.log-request-header = "enable"
+#debug.log-file-not-found = "enable"
+#debug.log-request-handling = "enable"
+#debug.log-condition-handling = "enable"
+
+server.modules += ( "mod_scgi" )
+
+scgi.debug = @SCGI_DEBUG@
+scgi.server = (
+  "/gdp/v1/" =>
+    ( "gdp" =>
+        ( "host" => "127.0.0.1",
+	  "port" => @SCGI_PORT@,
+	  "check-local" => "disable",
+	)
+    )
+)

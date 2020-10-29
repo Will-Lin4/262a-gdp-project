@@ -1,0 +1,1 @@
+Global Data Plane log deamon (without the REST interface)
