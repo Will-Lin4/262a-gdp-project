@@ -1,11 +1,14 @@
+#include <map>
+#include <string>
 #include <vector>
 
-//#include <nlohmann/json.hpp>
 #include "json.hpp"
 #include "gdp.h"
 
 #ifndef GDP_AGENT_HEADER
 #define GDP_AGENT_HEADER
+
+using json = nlohmann::json;
 
 /*------------------------------------------------------------------------------
   encryption_settings
@@ -24,6 +27,7 @@
 		Specifies algorithm for encrypting the private key when it is written 
 		to disk
 ------------------------------------------------------------------------------*/
+/*
 struct encryption_settings
 {
 	const char * dig_alg_name;	
@@ -33,6 +37,7 @@ struct encryption_settings
 	const char * key_curve;		
 	const char * key_enc_alg_name;
 };
+*/
 
 /*------------------------------------------------------------------------------
   gdp_bucket
@@ -50,13 +55,14 @@ struct encryption_settings
 	struct encryption_settings encryption
 		Associated encryption settings
 ------------------------------------------------------------------------------*/
+/*
 struct gdp_bucket
 {
-	gdp_gin_t * object;		
-	gdp_name_t * internal_name;
-	const char * external_name;
-	struct encryption_settings encryption;
-} typedef gdp_bucket;
+	const std::string external_name;
+	const gdp_gin_t * object;		
+};
+
+*/
 
 /*------------------------------------------------------------------------------
   gdp_agent
@@ -98,24 +104,19 @@ struct gdp_bucket
 ------------------------------------------------------------------------------*/
 class gdp_agent
 {
-private:
-	void add_new_bucket(const char * ext_name, gdp_create_info_t * info, 
-						struct encryption_settings enc);
-	void add_existing_bucket(const char * ext_name);
 
 public:
-	// Fields
-	std::vector<gdp_bucket *> buckets;
-
-	// Methods
 	gdp_agent();
 	~gdp_agent();
 	
-	EP_STAT create_bucket(const char * ext_name, gdp_create_info_t * info,
-						  struct encryption_settings enc);
-	EP_STAT write_to_bucket(gdp_bucket * bucket,  nlohmann::json input_data);
-	EP_STAT read_from_bucket(gdp_bucket * bucket, nlohmann::json & output_data);
+	EP_STAT create(const std::string& ext_name);
+	EP_STAT open(const std::string& ext_name);
+	EP_STAT write(const std::string& ext_name, const json& input_data);
+	EP_STAT read(const std::string& ext_name, gdp_recno_t recno,
+                 json* output_data);
 
-	gdp_bucket * find_bucket(const char * ext_name);
+private:
+    std::map<std::string, gdp_gin_t*> buckets_;
+
 };
 #endif

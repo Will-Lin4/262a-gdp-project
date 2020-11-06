@@ -1,8 +1,8 @@
 CC = g++
-FLAGS = -g -Wall
+FLAGS = -g -Wall -std=c++11
 INCLUDES = -I./include `mysql_config --include`
 LIBRARIES = -lgdp -lep -levent -levent_pthreads -lpthread -lcrypto -lprotobuf-c
-FILES = dummy_client gdp_buf
+FILES = dummy_client gdp_buf gdp_agent
 SRCDIR = src
 OBJDIR = build
 LIBROOT = libs
