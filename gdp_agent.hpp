@@ -1,11 +1,15 @@
 #include <iostream>
 #include <map>
 #include <string>
-
 #include <vector>
 
 #include "json.hpp"
-#include "gdp.h"
+
+extern "C" {
+
+#include <gdp/gdp.h>
+
+}
 
 #ifndef GDP_AGENT_HEADER
 #define GDP_AGENT_HEADER
@@ -261,11 +265,9 @@ EP_STAT gdp_agent::read(const std::string& ext_name, gdp_recno_t recno,
         gdp_buf_t* datum_buf = gdp_datum_getbuf(datum);
         size_t datum_size = gdp_datum_getdlen(datum);
 
-        char cbor[datum_size + 1];
-        cbor[datum_size] = '\0';
-        gdp_buf_read(datum_buf, (void*) cbor, datum_size);
-
-        *output_data = json::from_cbor((char*) cbor);
+        std::vector<uint8_t> cbor(datum_size);
+        gdp_buf_read(datum_buf, (void*) cbor.data(), datum_size);
+        *output_data = json::from_cbor(cbor);
     }
 
     gdp_datum_free(datum);
