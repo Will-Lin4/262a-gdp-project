@@ -121,6 +121,9 @@ public:
 	EP_STAT read(const std::string& ext_name, gdp_recno_t recno,
                  json* output_data);
 
+	EP_STAT read_bytes(const std::string& ext_name, gdp_recno_t recno, std::vector<uint8_t>* output);
+	EP_STAT write_bytes(const std::string& ext_name, const uint8_t* data, size_t size);
+
 private:
     std::map<std::string, gdp_gin_t*> buckets_;
 
@@ -131,10 +134,38 @@ private:
   Implementation of gdp_agent
 ------------------------------------------------------------------------------*/
 
+namespace {
+    // Little endian
+    void uint64_to_bytes(uint64_t n, uint8_t output[8]) {
+        output[0] = n;
+        output[1] = n >> 8;
+        output[2] = n >> 16;
+        output[3] = n >> 24;
+        output[4] = n >> 32;
+        output[5] = n >> 40;
+        output[6] = n >> 48;
+        output[7] = n >> 56;
+    }
+
+    uint64_t bytes_to_uint64(uint8_t bytes[8]) {
+        return bytes[0]
+            + (bytes[1] << 8)
+            + (bytes[2] << 16)
+            + (bytes[3] << 24)
+            + (bytes[4] << 32)
+            + (bytes[5] << 40)
+            + (bytes[6] << 48)
+            + (bytes[7] << 56);
+    }
+}
+
+
 // TODO: Add better error handling
 //
 // TODO: Implement better key management
 const std::string KEY_FILE = "";                                                               
+
+const size_t GDP_BLOCK_SIZE = 65000;
 
 // Public Methods
 gdp_agent::gdp_agent()
@@ -218,8 +249,7 @@ EP_STAT gdp_agent::open(const std::string& ext_name)
 	return estat;
 }
 
-
-EP_STAT gdp_agent::write(const std::string& ext_name, const json& input_data)
+EP_STAT gdp_agent::write_bytes(const std::string& ext_name, const uint8_t* data, size_t size)
 {
 	EP_STAT estat;
 
@@ -228,28 +258,50 @@ EP_STAT gdp_agent::write(const std::string& ext_name, const json& input_data)
         return EP_STAT {EP_STAT_SEV_WARN};
     gdp_gin_t* gin = it->second;
 
-    std::vector<uint8_t> cbor = json::to_cbor(input_data);
+    uint8_t size_in_bytes[8];
+    uint64_to_bytes(size, size_in_bytes);
+
     gdp_datum_t* datum = gdp_datum_new();
     gdp_buf_t* datum_buf = gdp_datum_getbuf(datum);
+    gdp_buf_write(datum_buf, (void*) size_in_bytes, 8);
 
-    int buf_write = gdp_buf_write(datum_buf, (void*) cbor.data(), cbor.size());
-    if (buf_write == 0)
+    size_t bytes_left = size;
+    if (bytes_left > GDP_BLOCK_SIZE - 8)
     {
-        // TODO: Change with hash later
-        estat = gdp_gin_append(gin, datum, nullptr); 
+        gdp_buf_write(datum_buf, (void*) data, GDP_BLOCK_SIZE - 8);
+        data += GDP_BLOCK_SIZE - 8;
+        bytes_left -= GDP_BLOCK_SIZE - 8;
     }
-    else 
+    else
     {
-        estat = EP_STAT {EP_STAT_SEV_WARN};
+        gdp_buf_write(datum_buf, (void*) data, bytes_left);
+        bytes_left = 0;
+    }
+    estat = gdp_gin_append(gin, datum, nullptr); 
+
+    while (EP_STAT_ISOK(estat) && bytes_left > 0)
+    {
+        gdp_datum_reset(datum);
+        if (bytes_left > GDP_BLOCK_SIZE) 
+        {
+            gdp_buf_write(datum_buf, (void*) data, GDP_BLOCK_SIZE);
+            data += GDP_BLOCK_SIZE;
+            bytes_left -= GDP_BLOCK_SIZE;
+        }
+        else
+        {
+            gdp_buf_write(datum_buf, (void*) data, bytes_left);
+            bytes_left = 0;
+        }
+
+        estat = gdp_gin_append(gin, datum, nullptr); 
     }
 
     gdp_datum_free(datum);
 	return estat;
 }
 
-
-EP_STAT gdp_agent::read(const std::string& ext_name, gdp_recno_t recno,
-                        json* output_data)
+EP_STAT gdp_agent::read_bytes(const std::string& ext_name, gdp_recno_t recno, std::vector<uint8_t>* output)
 {
 	EP_STAT estat;
 
@@ -265,14 +317,85 @@ EP_STAT gdp_agent::read(const std::string& ext_name, gdp_recno_t recno,
         gdp_buf_t* datum_buf = gdp_datum_getbuf(datum);
         size_t datum_size = gdp_datum_getdlen(datum);
 
-        std::vector<uint8_t> cbor(datum_size);
-        gdp_buf_read(datum_buf, (void*) cbor.data(), datum_size);
-        *output_data = json::from_cbor(cbor);
+        uint8_t size_in_bytes[8];
+        gdp_buf_read(datum_buf, (void*) size_in_bytes, 8);
+        uint64_t size = bytes_to_uint64(size_in_bytes);
+
+        std::vector<uint8_t> output_vector(size);
+        uint8_t* output_data = output_vector.data();
+        uint64_t bytes_left = size;
+
+        if (bytes_left > GDP_BLOCK_SIZE - 8)
+        {
+            gdp_buf_read(datum_buf, (void*) output_data, GDP_BLOCK_SIZE - 8);
+            bytes_left -= GDP_BLOCK_SIZE - 8;
+            output_data += GDP_BLOCK_SIZE - 8;
+        }
+        else
+        {
+            gdp_buf_read(datum_buf, (void*) output_data, bytes_left);
+            bytes_left = 0;
+        }
+
+        uint64_t next_recno = recno + 1;
+        while (EP_STAT_ISOK(estat) && bytes_left > 0)
+        {
+            gdp_datum_reset(datum);
+            estat = gdp_gin_read_by_recno(gin, next_recno, datum);
+            if (bytes_left > GDP_BLOCK_SIZE)
+            {
+                gdp_buf_read(datum_buf, (void*) output_data, GDP_BLOCK_SIZE);
+                bytes_left -= GDP_BLOCK_SIZE;
+                output_data += GDP_BLOCK_SIZE;
+            }
+            else
+            {
+                gdp_buf_read(datum_buf, (void*) output_data, bytes_left);
+                bytes_left = 0;
+            }
+        }
+
+        if (EP_STAT_ISOK(estat))
+            *output = output_vector;
     }
 
     gdp_datum_free(datum);
 
 	return estat;
 }
+
+EP_STAT gdp_agent::write(const std::string& ext_name, const json& input_data)
+{
+	EP_STAT estat;
+
+    auto it = buckets_.find(ext_name);
+    if (it == buckets_.end())
+        return EP_STAT {EP_STAT_SEV_WARN};
+    gdp_gin_t* gin = it->second;
+
+    std::vector<uint8_t> cbor = json::to_cbor(input_data);
+    uint8_t* data = cbor.data();
+    size_t size = cbor.size();
+	return write_bytes(ext_name, data, size);
+}
+
+EP_STAT gdp_agent::read(const std::string& ext_name, gdp_recno_t recno,
+                        json* output_data)
+{
+	EP_STAT estat;
+
+    auto it = buckets_.find(ext_name);
+    if (it == buckets_.end())
+        return EP_STAT {EP_STAT_SEV_WARN};
+    gdp_gin_t* gin = it->second;
+
+    std::vector<uint8_t> cbor;
+    estat = read_bytes(ext_name, recno, &cbor);
+    if (EP_STAT_ISOK(estat))
+        *output_data = json::from_cbor(cbor);
+
+	return estat;
+}
+
 
 #endif //GDP_AGENT_HEADER
