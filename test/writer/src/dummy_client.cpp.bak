@@ -1,0 +1,56 @@
+#include <iostream>
+#include <stdio.h>
+#include <string.h>
+#include <vector>
+#include <fstream>
+#include <unistd.h>
+#include <utility>
+
+//#include "gdp_agent.hpp"
+
+/*
+class router {
+
+public:
+    router(std::string output): output_(output) {}
+
+    static void route_handler(gdp_event_t* gev) {
+        gdp_datum_t* datum = gdp_event_getdatum(gev);
+        gdp_datum_print(datum, stdout, GDP_DATUM_PRTEXT);
+
+        std::string* input = (std::string*) gdp_event_getudata(gev);
+        std::cout << "Data received from: " << *input;
+
+        agent_.write_datum(output_, datum);
+    }
+
+    EP_STAT route(std::string input) {
+        agent_.open(input);
+        udata_list_.emplace_back(this, std::move(input));
+        auto new_udata = udata_list_.back();
+        return agent_.subscribe(new_udata.second, &route_handler, (void*) &new_udata);
+    }
+
+private:
+    gdp_agent agent_;
+    std::string output_;
+    std::list<std::pair<router*, std::string>> udata_list_;
+};
+*/
+
+
+int main(int argc, char* argv[]) {
+    //router r("test123_output");
+    /*
+    r.output = "test123_output";
+    r.agent.create(r.output);
+    r.agent.open("test123");
+    r.agent.subscribe("test123", &route, &r);
+    sleep(3600);
+	return 0;
+    */
+    std::vector<bool> a(10);
+    std::cout << "Size: " << a.size();
+    std::cout << "Capacity: " << a.max_size();
+}
+
