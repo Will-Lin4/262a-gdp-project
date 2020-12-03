@@ -45,7 +45,7 @@ else ()
     
     find_package(aws-lambda-runtime REQUIRED)
     find_package(AWSSDK COMPONENTS s3 lambda)
-    add_executable(mpl_lambda_aws src/mpl_lambda_aws.cpp src/mpl/demo/lambda_common.cpp src/mpl/comm.cpp src/mpl/gdp_comm.cpp src/mpl/write_queue.cpp src/mpl/demo/app_options.cpp)
+    add_executable(mpl_lambda_aws src/mpl_lambda_aws.cpp src/mpl/demo/lambda_common.cpp src/mpl/comm.cpp src/mpl/write_queue.cpp src/mpl/demo/app_options.cpp)
     target_link_libraries(mpl_lambda_aws PUBLIC Eigen3::Eigen Threads::Threads ${ASSIMP_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES} AWS::aws-lambda-runtime ${AWSSDK_LINK_LIBRARIES})
     
     # the following line adds "aws-lambda-package-mpl_lambda_aws" as a
@@ -81,7 +81,7 @@ file(GLOB SE3RSRC
      "resources/se3/Home*.dae" "resources/se3/Easy*.dae")
 file(COPY ${SE3RSRC} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/se3)
 
-add_executable(mpl_lambda_pseudo src/mpl_lambda_pseudo.cpp src/mpl/demo/lambda_common.cpp src/mpl/comm.cpp src/mpl/gdp_comm.cpp src/mpl/write_queue.cpp src/mpl/demo/app_options.cpp)
+add_executable(mpl_lambda_pseudo src/mpl_lambda_pseudo.cpp src/mpl/demo/lambda_common.cpp src/mpl/comm.cpp src/mpl/write_queue.cpp src/mpl/demo/app_options.cpp src/)
 target_link_libraries(mpl_lambda_pseudo Eigen3::Eigen Threads::Threads ${ASSIMP_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES} ${GDP_LIBRARIES})
 
 add_executable(mpl_robot src/mpl_robot.cpp src/mpl/write_queue.cpp src/mpl/demo/app_options.cpp)

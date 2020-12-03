@@ -16,15 +16,18 @@ mpl::Comm::~Comm() {
 void mpl::Comm::receive_packet(std::vector<uint8_t> packet,
                                void* comm_void_ptr) {
     mpl::Comm* comm_ptr = (mpl::Comm*) comm_void_ptr;
-    std::unique_lock<std::mutex> lock(comm_ptr->buffer_mutex_);
-    comm_ptr->packet_buffer_.emplace_back(std::move(packet));
-    lock.release();
-    comm_ptr->buffer_cv_.notify_one();
+    {
+        std::unique_lock<std::mutex> lock(comm_ptr->buffer_mutex_);
+        comm_ptr->packet_buffer_.emplace_back(std::move(packet));
+    }
 }
 
 void mpl::Comm::connect(const std::string& input_bucket) {
     gdp_.open(input_bucket);
-    gdp_.subscribe(input_bucket, &receive_packet, this);
+
+    if (EP_STAT_ISOK(gdp_.subscribe(input_bucket, &receive_packet, this))) {
+        JI_LOG(INFO) << "connected to coordinator bucket";
+    }
 }
 
 void mpl::Comm::writeBuffer(const Buffer& buffer) {
@@ -42,5 +45,5 @@ void mpl::Comm::handle(packet::Done&&) {
 }
 
 void mpl::Comm::sendDone() {
-    writeBuffer(packet::Done(problemId_));
+    //writeBuffer(packet::Done(problemId_));
 }

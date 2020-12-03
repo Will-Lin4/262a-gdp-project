@@ -24,7 +24,6 @@ namespace mpl {
 
         std::list<std::vector<uint8_t>> packet_buffer_;
         std::mutex buffer_mutex_;
-        std::condition_variable buffer_cv_;
 
         void writeBuffer(const Buffer& buffer);
 
@@ -98,15 +97,20 @@ void mpl::Comm::sendPath(
 
 template <class PacketFn>
 void mpl::Comm::processImpl(PacketFn fn) {
-    /*
-    std::unique_lock<std::mutex> lock(buffer_mutex_);
-    buffer_cv_.wait(lock, [&]() { return packet_buffer_.size() > 0; });
+    if (packet_buffer_.size() == 0) {
+        return;
+    }
 
-    std::vector<uint8_t> packet = std::move(packet_buffer_.front());
-    packet_buffer_.pop_front();
+    std::vector<uint8_t> packet;
+    {
+        std::unique_lock<std::mutex> lock(buffer_mutex_);
+        if (packet_buffer_.size() == 0) {
+            return;
+        }
 
-    lock.release();
-    buffer_cv_.notify_one();
+        packet = std::move(packet_buffer_.front());
+        packet_buffer_.pop_front();
+    }
 
     ssize_t n = packet.size();
     Buffer rBuf(n);
@@ -115,7 +119,6 @@ void mpl::Comm::processImpl(PacketFn fn) {
     rBuf.flip();
 
     packet::parse(rBuf, fn);
-    */
 }
 
 template <class PathFn>

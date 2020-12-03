@@ -1,0 +1,22 @@
+#
+#  This is used to start up a GDP monitor process natively.  Do not
+#  use this if the monitoring is running in a Docker container.
+#
+#  It assumes that all the scripts are installed in /opt/gdp/adm/monitoring.
+
+[Unit]
+Description=GDP Health monitoring
+After=network-online.target
+
+[Service]
+Type=simple
+User=gdp
+WorkingDirectory=/opt/gdp/adm/monitoring
+ExecStart=/usr/bin/python monitor.py -s -c emailconfig -l /var/log/gdp/monitor tests.conf
+
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=gdp-monitor
+
+[Install]
+WantedBy=multi-user.target

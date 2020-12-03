@@ -66,6 +66,10 @@ namespace mpl::demo {
         Comm comm_;
         comm_.setProblemId(options.problemId());
 
+        if (!options.coordinator(false).empty()) {
+            comm_.connect(options.coordinator());
+        }
+
         JI_LOG(INFO) << "setting up planner";
         Planner<Scenario, Algorithm> planner(std::forward<Args>(args)...);
 
