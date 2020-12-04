@@ -1,0 +1,16 @@
+[Unit]
+Description=GDP RIB Daemon Service
+After=mysql.service
+After=network-online.target
+
+[Service]
+Type=simple
+User=gdp
+ExecStart=/usr/sbin/gdp-ribd
+Restart=always
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=gdp-ribd
+
+[Install]
+WantedBy=multi-user.target

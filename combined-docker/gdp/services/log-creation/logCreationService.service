@@ -1,0 +1,46 @@
+#
+#  This systemd service file is specific to servers at Berkeley.
+#
+#       Feel free to adapt it for your use, but please do not attempt
+#       to use it without modification.
+#
+
+[Unit]
+Description=GDP log-creation service
+After=network-online.target
+OnFailure=unit-status-mail@%n.service
+
+[Service]
+Type=simple
+Restart=always
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=logCreationService
+
+# Following should be changed for individual environments
+User=gdp
+WorkingDirectory=/opt/log-creation
+Environment=GDP_ROUTER=gdp-01.eecs.berkeley.edu
+Environment=GDP_CREATION_SERVICE_NAME=edu.berkeley.eecs.gdp.service.creation
+Enviornment=GDP_HONGD_HOST=gdp-hongd.cs.berkeley.edu
+
+# ExecStart should be tweaked; in particular, the -s arguments
+# should be changed to point to your gdplogd servers.
+ExecStart=/usr/bin/python logCreationService.py \
+         -i ${GDP_ROUTER} \
+         -p 8009 \
+         -d logs.db \
+         -a ${GDP_CREATION_SERVICE_NAME} \
+	    "edu.berkeley.eecs.gdp-01.gdplogd" \
+            "edu.berkeley.eecs.gdp-02.gdplogd" \
+            "edu.berkeley.eecs.gdp-03.gdplogd" \
+            "edu.berkeley.eecs.gdp-04.gdplogd" \
+         -s "edu.berkeley.eecs.gdp-01.gdplogd.physical" \
+            "edu.berkeley.eecs.gdp-02.gdplogd.physical" \
+            "edu.berkeley.eecs.gdp-03.gdplogd.physical" \
+            "edu.berkeley.eecs.gdp-04.gdplogd.physical" \
+         --namedb_host=${GDP_HONGD_HOST} \
+         --namedb_pw_file="/etc/gdp/creation_service_pw.txt" \
+
+[Install]
+WantedBy=multi-user.target

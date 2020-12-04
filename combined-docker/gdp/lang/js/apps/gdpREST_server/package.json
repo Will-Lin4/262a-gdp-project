@@ -1,0 +1,10 @@
+{
+	"name":     "gdpREST_server",
+	"version":  "0.0.1",
+	"main":     "gdpREST_server.js",
+	"private":  "true",
+	"dependencies": {
+		"express":     "~4.0.0",
+		"body-parser": ">=1.9.2"
+	}
+}

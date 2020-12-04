@@ -1,0 +1,463 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <title>GDP Library Implementation</title>
+    <style type="text/css">
+.metanotes {  
+  font-style: italic;  
+  font-weight: bold;  
+  background-color: #ffff66;  
+  color: red;
+}
+
+</style></head>
+  <body>
+    <h1>Global Data Plane Library Implementation</h1>
+    Eric Allman<br>
+    2015-02-26<br>
+    <br>
+    <p class="metanotes">This document is not yet complete.</p>
+    <p> </p>
+    <p>This document describes the internals of the Global Data Plane (GDP)
+      run-time library at a conceptual level.&nbsp; This library is linked into
+      any client that wishes to participate in the Global Data Plane.&nbsp; The
+      base library is implemented in C, which is what this document will assume,
+      but bindings for the external interfaces are available for other
+      languages.&nbsp; See the document Global Data Plane Programmatic API for
+      details of that interface.<br>
+    </p>
+    <h2>Overview</h2>
+    <p class="metanotes">To be completed.</p>
+    <p> Main modules: </p>
+    <ul>
+      <li>API.</li>
+      <li>Request management.</li>
+      <li>Datum management.<br>
+      </li>
+      <li>I/O buffering.</li>
+      <li>GOB associative cache.</li>
+      <li>Protocol Data Units (PDUs).</li>
+      <li>GDP protocol.</li>
+      <li>Event loop.</li>
+    </ul>
+    <p>Generally speaking, the GDP library is structured as an event-driven
+      program with a synchronous API.&nbsp; One thread services events (e.g.,
+      responses from the GDP daemon) while the main thread executes the user
+      application.&nbsp; When the application needs to contact the daemon, it
+      sends the message and then waits on a condition variable until
+      signaled.&nbsp; In the meantime, the event look will wait for a response,
+      associate it with the appropriate GOB handle on the basis of the GOB
+      associative cache, and then signal the application to collect the results.<br>
+    </p>
+    <p>Data is exchanged through a data structure of type <code>gdp_datum_t</code>,
+      which contains a record number a time stamp, and a data buffer.&nbsp; When
+      sending data to the GDP daemon, the application creates a datum, fills it
+      in with data, and sends it to the daemon.&nbsp; When receiving data from
+      the GDP daemon, the application passes a datum into the GDP library that
+      will be filled in.&nbsp; Generally when sending data to the daemon the
+      record number and time stamp are ignored and replaced with the real record
+      number and timestamp after the write completes.<br>
+    </p>
+    <h2>Important Data Types and Structures</h2>
+    <h2>Module Details</h2>
+    <h3>API</h3>
+    <p>The API module (<code>gdp/gdp_api.c</code>) defines all the externally
+      visible routines.&nbsp; Since these are already documented in the GDP
+      Programmatic API document, suffice it to say that it does the
+      "translation" between the internal protocol and the external API.&nbsp;
+      Approximately speaking, it packages up parameters into a request, invokes
+      the request, and translates the updated request into any return codes.<br>
+    </p>
+    <h3>Request Management</h3>
+    <p>Implemented in <code>gdp/gdp_req.c</code>.<br>
+    </p>
+    <p>Internally the data flow is managed through a series of requests.&nbsp;
+      In many cases there will be only one request active on a given GOB at a
+      time, but this is not necessarily true, especially in the GDP daemon when
+      handling subscriptions (each subscription is a separate request).&nbsp;
+      Requests (potentially) have a pointer to a GOB handle, a pointer to a
+      protocol data unit (in internal form; essentially a packet), the status
+      code from the operation embodied in the request, and special information
+      for use when processing subscriptions.<br>
+    </p>
+    <p>The internal routines are:<br>
+    </p>
+    <table border="1" cellpadding="2" cellspacing="2" width="100%">
+      <tbody>
+        <tr>
+          <td valign="top"><code>_gdp_req_new</code><br>
+          </td>
+          <td valign="top">Create a new request and fill it in with a GDP
+            protocol command, GOB handle, I/O channel, and flags (passed in as
+            parameters) as well as space for a packet (in internal form) and
+            request ID.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_req_free</code><br>
+          </td>
+          <td valign="top">Free the request and all associated resources such as
+            the space for packet information.&nbsp; It also decrements the
+            reference count on the GOB handle indicated in the request.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_req_freeall</code><br>
+          </td>
+          <td valign="top">Free all requests associated with a particular GOB
+            handle.&nbsp; GOBs that have pending subscriptions will have one
+            request per subscription, which are linked off the GOB handle.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_req_find</code><br>
+          </td>
+          <td valign="top">Given a GOB handle and a request ID, find the
+            associated request on the list associated with that GOB
+            handle.&nbsp; Note that request IDs need only be unique within a
+            particular GOB handle.<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p><br>
+    </p>
+    <h3>Datums</h3>
+    <p>Implemented in <code>gdp/gdp_datum.c</code>.<br>
+    </p>
+    <p>As described above, a datum is the internal version of a GOB
+      record.&nbsp; The routines, which are externally visible, are:<br>
+    </p>
+    <table border="1" cellpadding="2" cellspacing="2" width="100%">
+      <tbody>
+        <tr>
+          <td valign="top"><code>gdp_datum_new</code><br>
+          </td>
+          <td valign="top">Create a new empty datum, including its associated
+            (empty) buffer.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_free</code><br>
+          </td>
+          <td valign="top">Free the datum, including it's associated data
+            buffer.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_getrecno</code><br>
+          </td>
+          <td valign="top">Get the record number.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_getts</code><br>
+          </td>
+          <td valign="top">Get the timestamp.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_getdlen</code><br>
+          </td>
+          <td valign="top">Get the length of the data buffer.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_getbuf</code><br>
+          </td>
+          <td valign="top">Get the data buffer itself.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>gdp_datum_print</code><br>
+          </td>
+          <td valign="top">Print a datum in a format suitable for debugging use.<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+    When sending data to the GDP, the application has to create a datum, get the
+    buffer from that datum, and add the data to the buffer.&nbsp; When receiving
+    data from the GDP, the application creates a datum, hands it in to the
+    appropriate read API, and upon the return can access the data buffer with
+    return data, the record number, and the timestamp.<br>
+    <h3>GOB Associative Cache</h3>
+    <p>Implemented in <code>gdp/gdp_gob_cache.c</code>.<br>
+    </p>
+    <p>The primary purpose of the GOB Associative Cache is to allow quick
+      association between a GOB name and the associated handle.&nbsp; When a
+      packet is received that contains a GOB name, this delivers the handle that
+      contains the necessary state information.<br>
+    </p>
+    <table border="1" cellpadding="2" cellspacing="2" width="100%">
+      <tbody>
+        <tr>
+          <td valign="top"><code>_gdp_gob_cache_init</code><br>
+          </td>
+          <td valign="top">Initializes the GOB cache.&nbsp; Called only once on
+            startup.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_cache_get</code><code><br>
+            </code></td>
+          <td valign="top">Extracts the GOB handle from the cache based on name
+            and I/O mode.&nbsp; If it is found the reference count on the GOB
+            handle is incremented; if not, it returns NULL.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_cache_add</code><br>
+          </td>
+          <td valign="top">Adds the GOB handle to the cache.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_cache_drop</code><br>
+          </td>
+          <td valign="top">Removes the GOB name &rarr; handle association from
+            the cache.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_incref</code><br>
+          </td>
+          <td valign="top">Increments the reference count on the GOB handle.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_decref</code><br>
+          </td>
+          <td valign="top">Decrements the reference count on the GOB
+            handle.&nbsp; If the reference count reaches zero the handle becomes
+            a candidate for cleanup, but this is deferred because, in the common
+            case, another request for this GOB will appear shortly.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_newhandle</code><br>
+          </td>
+          <td valign="top">Creates a new GOB handle.&nbsp; Note that this is
+            just the library data &mdash; it sends no protocol to the GDP
+            daemon.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_gob_freehandle</code><br>
+          </td>
+          <td valign="top">Does the actual deallocation of the handle.&nbsp;
+            Removes the GOB from the cache (by calling <code>_gdp_gob_cache_drop</code>).&nbsp;
+            If the GOB includes a free function, that function is called (this
+            is used by the GDP daemon).&nbsp; It then frees the memory allocated
+            to the handle itself.<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+    <h3>Protocol Data Units</h3>
+    Implemented in <code>gdp/gdp_pdu.c</code>.<br>
+    <br>
+    Packets are marshalled and demarshalled in <code>gdp/gdp_pdu.c</code>.&nbsp;
+    Each packet has the following fields (with the number of octets for the
+    field):<br>
+    <ul>
+      <li>Protocol version (1).</li>
+      <li>Time to live (in hops) (1).</li>
+      <li>Reserved for future use (must be zero when sending, ignored on
+        receive) (1).</li>
+      <li>Command or Ack/Nak (1).</li>
+      <li>Destination address (32).</li>
+      <li>Source address (32).</li>
+      <li>Request id (4).</li>
+      <li>Signature algorithm (1).</li>
+      <li>Signature length (in 32-bit words) (1).</li>
+      <li>Length of optional header fields (in 32-bit words) (1).&nbsp; This
+        indicates the number of 32-bit words between the data length and the
+        data (exclusive).</li>
+      <li>Flags (1).&nbsp; These indicate the presence of the optional fields.</li>
+      <li>Length of data portion (4).</li>
+      <li>Record number (8, optional).</li>
+      <li>Sequence number (8, optional).</li>
+      <li>Commit timestamp (16, optional).</li>
+      <li>possible future extensions (variable length).</li>
+      <li>Data (as indicated by the length field).</li>
+      <li>Signature (as indicated by the signature length field).</li>
+    </ul>
+    <p>One field is used to indicate both commands and acknowledgements/negative
+      acknowledgements.&nbsp; See the comments in <code>gdp/gdp_pdu.h</code>
+      for the details of those values.&nbsp; This is worth emphasizing: the
+      command field in the protocol encodes both imperative commands (e.g.,
+      "write this data") and responses ("that data was written" or "could not
+      write that data").&nbsp; Both forms are described in the code as
+      "commands", and even share a single dispatch table.<br>
+    </p>
+    <p>The routines for handling packets are:</p>
+    <table border="1" cellpadding="2" cellspacing="2" width="100%">
+      <tbody>
+        <tr>
+          <td valign="top"><code>_gdp_pdu_new</code><br>
+          </td>
+          <td valign="top">Allocates a new (empty) packet.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_pdu_free</code><br>
+          </td>
+          <td valign="top">Frees a packet.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_pdu_out</code><br>
+          </td>
+          <td valign="top">Given a packet structure and an output buffer,
+            converts that packet to external format and writes it to the
+            buffer.&nbsp; Under normal circumstances this buffer is associated
+            with an I/O channel, and hence is written to the communication
+            socket automatically.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_pdu_in</code><br>
+          </td>
+          <td valign="top">Reads a packet from an I/O buffer and converts it to
+            internal format.&nbsp; It is possible that this routine can return
+            without reading the entire packet with the special status code <code>GDP_STAT_KEEP_READING</code>.&nbsp;
+            Under most cases it should be called in a loop until a successful
+            status is returned.&nbsp; As with <code>_gdp_pdu_out</code>, the
+            I/O buffer is normally associated with an I/O channel.&nbsp; See the
+            discussion of the event loop for more details.<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><code>_gdp_pdu_dump</code><br>
+          </td>
+          <td valign="top">Prints a packet in a form suitable only for
+            debugging.<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+    <h3>GDP Protocol</h3>
+    <p>Implemented in <code>gdp/gdp_proto.c</code>.<br>
+    </p>
+    <p>The basic model is that users (e.g., the API layer) create a request with
+      <code>_gdp_req_new</code> which contains a command (what operation needs
+      to be done), an optional PDU buffer, an optional pointer to a GOB handle
+      on which to perform the operation, the connection on which to operate, and
+      some flag bits.&nbsp; The PDU buffer in turn contains all the information
+      to be passed to or from the service, including data, timestamps, record
+      numbers, etc.&nbsp; For example, on read the PDU will contain the record
+      number to be read, and the response will fill in the rest of the
+      information.&nbsp; The client then calls <code>_gdp_invoke</code>,
+      passing it the request.&nbsp; That routine in turn sends the request using
+      <code>_gdp_req_send</code>, waits on the condition variable contained in
+      the request to get the final return status, and returns that.<br>
+    </p>
+    <p>The sending part, implemented by <code>_gdp_req_send</code>, links the
+      request to the requesting GOB (so it can be found when the reply
+      eventually comes in), makes sure that the GOB name is in the associative
+      name &rarr; handle cache, and sends the packet.<br>
+    </p>
+    <p>When the reply message eventually comes in, it triggers an event in the
+      main I/O loop; that is handed to (another) thread for processing.&nbsp;
+      This is done through the bufferevent interface, part of libevent2, which
+      invokes callbacks when events happen on sockets (that is, it can be
+      considered as having a similar functionality to <code>select</code>, or
+      more accurately <code>kqueue</code> or <code>/dev/poll</code>).&nbsp;
+      The primary callback used is <code>gdp_read_cb</code>.&nbsp; That routine
+      allocates a new packet and reads a packet into that area.&nbsp; If the
+      packet is incomplete (i.e., it hasn't all been read in) the packet is
+      freed and the callback returns (it will be called again later when more of
+      the packet is read).&nbsp; If the entire packet is available, it calls <code>_gdp_pdu_process</code>
+      (indirectly, via the <code>process</code> field in the channel) to
+      interpret it.<br>
+    </p>
+    <p>[The code currently has a non-functional #ifdef for <code>GDP_PDU_QUEUE</code>.&nbsp;
+      This is for a future extension allowing the packet to be dropped into
+      another queue for interpretation from a process in the thread pool so that
+      the read thread can focus entirely on reading and handing off
+      packets.&nbsp; This technique is already used in gdplogd, and will only be
+      used in the client library if necessary for performance.]<br>
+    </p>
+    <p>PDU processing in <span style="font-family: monospace;">_gdp_pdu_process</span><code></code>
+      involves finding the associated GOB, if available, and from that finding
+      the associated request.&nbsp; If no request is found a new request is
+      created; this is the case with spontaneous commands.&nbsp; There is some
+      processing of datums to handle the case where a request had an existing
+      datum that needs to be replaced with a new one (for example, a read
+      request that passed in a datum with the record number and returns a datum
+      with the associated timestamp and data; since the read API passes in the
+      datum, there is some shuffling necessary with the underlying data buffers
+      so that the caller can actually access the returned data).&nbsp; The
+      request (now a response) is then passed to <code>_gdp_req_dispatch</code>
+      for processing.<br>
+    </p>
+    <p>Processing in <code>_gdp_req_dispatch</code> is done through a simple
+      dispatch table indexed by command.&nbsp; Requests can be either commands
+      or responses (ack/nak); in most cases, client programs should only receive
+      responses, and will get a "not implemented" if any commands are
+      received.&nbsp; Responses fall into 2&frac12; classes: successes (acks),
+      client naks, and server naks.&nbsp; There are several of each of these,
+      which roughly correspond to HTTP response codes (2xx, 4xx, and 5xx
+      respectively) or CoAP codes (2.xx, 4.xx, and 5.xx).&nbsp; These piggyback
+      on three routines (<code>ack_success</code>, <code>nak_client</code>, and
+      <code>nak_server</code>), the latter two of which are essentially
+      identical, doing nothing but passing the error on up the stack.&nbsp; The
+      <code> ack_success</code> routine checks for some nonsensical situations
+      and passes the (interpreted) status back up to <span style="font-family: monospace;">_gdp_pdu_process</span><code></code>.<br>
+    </p>
+    <p>The response from the command is then interpreted by <code>_gdp_pdu_process</code>.&nbsp;
+      There are two cases.&nbsp; The simpler one is when the command/response
+      was a simple ack/nak, in which case the status is stored in the request
+      and the thread waiting on that request is poked to wake up.&nbsp; The
+      other case is when the request is a subscription, in which case this
+      request (which in this case must be a response) must be turned into an
+      event.&nbsp; If so, a new event is created and passed off to the event
+      subsystem for delivery (described elsewhere).<br>
+    </p>
+    <h4>Response Confusion</h4>
+    <p>One major confusion results from the large variety of response codes from
+      various existing subsystems.&nbsp; One common status encoding is HTTP
+      status codes and CoAP status codes.&nbsp; These overlap (mostly), so we
+      can (mostly) treat them as the same thing.&nbsp; They are the primary mode
+      of passing protocol status in the GDP protocol, but since those response
+      are only eight bits the codes are offset: HTTP/COAP codes 200&ndash;264
+      become commands 128&ndash;191, codes 400&ndash;432 become commands
+      192&ndash;223, and codes 500&ndash;531 become commands 224&ndash;254.<br>
+    </p>
+    <p>Internally the GDP library uses the <code>EP_STAT</code> abstraction as
+      a status lingua franca.&nbsp; <code>EP_STAT</code>s allow encoding of
+      response codes in a single integer (so they can be passed easily back from
+      functions).&nbsp; Those integers encode a severity (most importantly,
+      success or failure), a registry and a module identifier (which for this
+      purpose can be treated as one piece), and detail information.&nbsp; The
+      module is used to create broad categories: for example, one module
+      corresponds to Unix errnos, allowing them to be passed back
+      directly.&nbsp; Another module is specific to the GDP.&nbsp; There are
+      several generic status codes defined in <code>gdp/gdp_stat.h</code> such
+      as <code>GDP_STAT_KEEP_READING</code> (a warning that a partial packet
+      has been read but the remainder remains to be read) or <code>GDP_STAT_CORRUPT_GOB</code>
+      (a severe error saying that the disk representation of a GOB is corrupt
+      and cannot be read).&nbsp; The HTTP/CoAP codes are encoded in the same
+      module, but back in their original positions, i.e., in the 200&ndash;599
+      range.<br>
+    </p>
+    <h3>Event Processing</h3>
+    <p>Events (see <code>gdp/gdp_event.c</code>) are a way of delivering
+      information to a client without using an RPC-style blocking
+      response.&nbsp; Specifically, a client can issue several commands and then
+      wait for the responses to come in an arbitrary order.&nbsp; The
+      implementation is simple: as messages are read that cannot be immediately
+      processed they are turned into events.&nbsp; Those events are linked onto
+      an active list.&nbsp; The client can collect events using <code>gdp_event_next</code>,
+      which takes them off the active queue.&nbsp; The client is responsible for
+      freeing them using <code>gdp_event_free</code>.<br>
+    </p>
+    <h3>Event Loop</h3>
+    <p class="metanotes">To be written.</p>
+  </body>
+</html>

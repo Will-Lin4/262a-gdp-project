@@ -1,0 +1,425 @@
+/* vim: set ai sw=4 sts=4 ts=4 :*/
+
+/*
+**  These represent messages that approximately correspond to
+**  Layer 5 (Session Layer) in the OSI model.
+**  For information about Layer 4 (Transport), see gdp/gdp_chan.h.
+*/
+
+/*
+**  GdpMessage more-or-less corresponds to an in-memory gdp_pdu_t.
+**  > cmd is the GDP command or response (e.g., APPEND, ACK_SUCCESS,
+**    NAK_CONFLICT, etc.).
+**	> rid is a tag to make requests unique.  Responses always contain
+**    the same rid as the corresponding command.  For example, if there
+**    are two READs in process at one time, different rids will
+**    allow the responses to be paired with the command.  They can
+**    be re-used once a command is complete.
+**  > seqno increases over time, and can be used to impose
+**    ordering constraints.  [They need not be the same between
+**    commands and responses]?
+**  > body contains the semantic payload.
+**  > sig is a signature over cmd, rid, and body.  This signs the
+**    command, not the data.
+**
+**  Note that there are sequence numbers at both Layer 4 and Layer 5.
+**  At the moment only the L4 seqno is in use.
+*/
+
+message GdpMessage
+{
+	required GdpMsgCode		cmd = 1;		// command or ack/nak
+	optional uint32			rid = 2;		// request distinguisher
+	optional uint32			l5seqno = 3;	// sequence number
+	oneof body
+	{
+		CmdCreate			cmd_create				= 66;
+		CmdOpen				cmd_open				= 67;
+		CmdClose			cmd_close				= 70;
+		CmdAppend			cmd_append				= 71;
+		CmdReadByRecno		cmd_read_by_recno		= 72;
+		CmdReadByTs			cmd_read_by_ts			= 73;
+		CmdReadByHash		cmd_read_by_hash		= 74;
+		CmdSubscribeByRecno	cmd_subscribe_by_recno	= 75;
+		CmdSubscribeByTs	cmd_subscribe_by_ts		= 76;
+		CmdSubscribeByHash	cmd_subscribe_by_hash	= 77;
+		CmdUnsubscribe		cmd_unsubscribe			= 78;
+		CmdGetMetadata		cmd_get_metadata		= 79;
+		CmdDelete			cmd_delete				= 81;
+
+		AckSuccess			ack_success				= 128;
+		AckChanged			ack_changed				= 132;
+		AckContent			ack_content				= 133;
+		AckEndOfResults		ack_end_of_results		= 191;
+
+		NakGeneric			nak						= 192;
+		NakConflict			nak_conflict			= 201;
+	}
+	optional GdpSignature	sig = 4;			// commmand/response signature
+
+	/*
+	**  Individual command syntaxes.  These do not include the name of
+	**  the log upon which they are acting since that's given in the
+	**  destination field of the enclosing Layer 4 packet.
+	*/
+
+	//XXX This really doesn't belong here: it is in Layer 4 now
+	message CmdAdvertise
+	{
+		required bytes			adname = 1;			// name to advertise
+	}
+
+	// Create a new log
+	// This is addressed to the log server, not the log itself.
+	//  ... logname will ultimately just be the hash of the metadata,
+	//		at which point it can go away.
+	message CmdCreate
+	{
+		required GdpMetadata	metadata = 1;		// log metadata
+		optional bytes			logname = 2;		// name of new log
+	}
+
+	// Open a log.  Someday this may need to have access information,
+	// QoS requirements, etc.
+	message CmdOpen
+	{
+	}
+
+	// Close a log.
+	message CmdClose
+	{
+	}
+
+	/*
+	**  Append data to a log.  This can include more than one datum,
+	**  where each datum contains the hash of the previous datum,
+	**  and the final datum is signed.  Note that the signature
+	**  inside the datum applies to the datum itself, not the PDU.
+	**  Presumably the PDU signature would not be required if the
+	**  datum is already signed.
+	**
+	**  This command only gets one acknowledgement, regardless of
+	**  the number of datums in the list.
+	*/
+
+	message CmdAppend
+	{
+		required GdpDatumList	dl = 1;				// data list to append
+	}
+
+	/*
+	**  Commands for reading the log.
+	**
+	**  In most cases these potentially produce a set of records in
+	**  one or more AckContent messages.  Each AckContent can contain
+	**  more than one datum.  See description of that message for
+	**  more detail.
+	**
+	**  The `nrecs` field specifies the maximum number of records
+	**  to return.  If 0, it indicates the "singleton" case, i.e.,
+	**  where a single datum is returned in one message, rather than
+	**  two or more messages.  Briefly, commands that may return a
+	**  set of records (`nrecs` > 0 and all subscriptions) return:
+	**    * An AckSuccess indicating that the command has been
+	**      received and processed, and more data will appear (or
+	**      a failure Nak).
+	**    * One or more AckContent messages containing the data that
+	**      is to be read.
+	**	If `nrecs` = 0 then only an AckContent (or a Nak) will be
+	**  returned.
+	**
+	**  If `nrecs` = -1 or is not specified it indicates infinity.
+	**
+	**  The exception is CmdReadByHash.  By definition it can never
+	**  return more than one datum.  However, it will be returned
+	**  using the existing, more general mechanism as for the others.
+	**  Essentially, it behaves as if `nrecs` is always = 0.
+	*/
+
+	// Read a record based on the record number.  Returns a set.
+	// If recno is negative, it is relative to the greatest recno
+	// in the log.
+	message CmdReadByRecno
+	{
+		required sint64			recno = 1;			// record number
+		optional int32			nrecs = 2			// number of records
+										[default = -1];
+	}
+
+	// Read a record based on the timestamp.  Returns a set.
+	message CmdReadByTs
+	{
+		required GdpTimestamp	timestamp = 1;		// timestamp
+		optional int32			nrecs = 2			// number of records
+										[default = -1];
+	}
+
+	// Read a record based on the hash of the data.  Should always be unique;
+	// hence, we do not need nrecs.
+	message CmdReadByHash
+	{
+		required bytes			hash = 1;			// hash value
+	}
+
+	/*
+	**  Subscriptions act very much like CmdReadBy*, except that when
+	**  the data is exhausted (i.e., no more data is available from the
+	**  log) they will wait until more data comes along for delivery.
+	**
+	**	For ReadByRecno, if `start` is zero or not specified, it means
+	**  to start at the next record written to the log.
+	**  If negative, it is interpreted relative to the number of records
+	**  already in the log (so -1 means to deliver the last record in
+	**  the log and then subsequent records.
+	**
+	**  If `nrecs` is unspecified or zero, it means to read forever.
+	*/
+
+	// Subscribe to a log starting from a given record number.
+	message CmdSubscribeByRecno
+	{
+		optional sint64			start = 1;			// starting record number
+		optional int32			nrecs = 2;			// number of records
+		optional GdpTimestamp	timeout = 3;		// timeout
+	}
+
+	// Subscribe to a log starting from a particular timestamp.
+	message CmdSubscribeByTs
+	{
+		required GdpTimestamp	timestamp = 1;		// starting timestamp
+		optional int32			nrecs = 2;			// number of records
+		optional GdpTimestamp	timeout = 3;		// timeout
+	}
+
+	// Subscribe to a lot starting from a given datum hash.
+	//XXX	It isn't clear how subscriptions work in the presence of
+	//		data forks.
+	message CmdSubscribeByHash
+	{
+		required bytes			hash = 1;			// hash value
+		optional int32			nrecs = 2;			// number of records
+		optional GdpTimestamp	timeout = 3;		// timeout
+	}
+
+	// Cancel a subscription.
+	message CmdUnsubscribe
+	{
+	}
+
+	// Get the metadata for a given log.
+	message CmdGetMetadata
+	{
+	}
+
+	// Delete a log.  Someday, maybe.
+	message CmdDelete
+	{
+	}
+
+	/*
+	**  Positive acknowledgements.
+	**
+	**  Of particular interest is AckContent, which returns the results
+	**  from a read-type command or a subscription.
+	**  It can contain zero or more datums 
+	*/
+
+	// Generic success acknowledgement (shared).
+	message AckSuccess
+	{
+		optional uint64			recno = 1;
+		optional GdpTimestamp	ts = 2;
+		optional bytes			hash = 3;
+		optional bytes			metadata = 4;
+	}
+
+	message AckChanged
+	{
+		required uint64			recno = 1;
+	};
+
+	// Data content; used for READ and SUBSCRIBE results.
+	// Note: can return a set if there are duplicate recnos.
+	message AckContent
+	{
+		required GdpDatumList	dl = 1;				// returned data list
+		optional bool			moredata = 2;		// set if more data possible
+	}
+
+	// End of results
+	message AckEndOfResults
+	{
+		optional uint32			ep_stat = 1;
+		optional uint64			nresults = 3;		// number of results
+	}
+
+	/*
+	**  Negative acknowledgements.
+	**		Note that _gdp_req_nak_resp assumes that all NAKs are
+	**		NakGeneric.  If that changes, that routine will need to be
+	**		changed (and made more complex, alas).
+	*/
+
+	// Generic failure (shared).
+	message NakGeneric
+	{
+		optional uint32			ep_stat = 1;
+		optional string			description = 2;
+		optional uint64			recno = 3;
+	}
+
+	// Unclear why this doesn't just share NakGeneric.
+	message NakConflict
+	{
+		optional uint32			ep_stat = 1;
+		optional string			description = 2;
+		optional uint64			recno = 3;
+	}
+}
+
+enum GdpMsgCode
+{
+	// 0-63		Blind commands (no response)
+	CMD_NONE =					0;			// no command (can use as keepalive)
+	CMD_ADVERTISE =				1;			//XXX moved to L4
+	CMD_WITHDRAW =				2;			//XXX moved to L4
+
+	// 64-127	Acknowledged commands
+	CMD_PING =					64;
+	CMD_HELLO =					65;
+	CMD_CREATE =				66;
+	CMD_OPEN_AO =				67;
+	CMD_OPEN_RO =				68;
+	CMD_OPEN_RA =				69;
+	CMD_CLOSE =					70;
+	CMD_APPEND =				71;
+	CMD_READ_BY_RECNO =			72;
+	CMD_READ_BY_TS =			73;
+	CMD_READ_BY_HASH =			74;
+	CMD_SUBSCRIBE_BY_RECNO =	75;
+	CMD_SUBSCRIBE_BY_TS =		76;
+	CMD_SUBSCRIBE_BY_HASH =		77;
+	CMD_UNSUBSCRIBE =			78;
+	CMD_GETMETADATA =			79;
+	CMD_DELETE =				81;
+//	CMD_FWD_APPEND =			127;		//XXX moved to L4
+
+	// 128-191	Positive Acks (HTTP 200-263)
+	ACK_SUCCESS =				128;		// HTTP 200
+	ACK_CREATED =				129;		// HTTP 201
+	ACK_DELETED =				130;		// HTTP 202
+	ACK_VALID =					131;		// HTTP 203
+	ACK_CHANGED =				132;		// no direct HTTP equiv XXX used???
+	ACK_CONTENT =				133;		// no direct HTTP equivalent
+	ACK_END_OF_RESULTS =		191;		// no more results (no HTTP equiv)
+
+	// 192-233	Negative acks, client side (CoAP, HTTP 400-431)
+	NAK_C_BADREQ =				192;		// HTTP 400
+	NAK_C_UNAUTH =				193;		// HTTP 401
+	NAK_C_BADOPT =				194;		// HTTP 402
+	NAK_C_FORBIDDEN =			195;		// HTTP 403
+	NAK_C_NOTFOUND =			196;		// HTTP 404
+	NAK_C_METHNOTALLOWED =		197;		// HTTP 405
+	NAK_C_CONFLICT =			201;		// HTTP 409
+	NAK_C_GONE =				202;		// HTTP 410
+	NAK_C_PRECONFAILED =		204;		// HTTP 412
+	NAK_C_TOOLARGE =			205;		// HTTP 413
+	NAK_C_UNSUPMEDIA =			207;		// HTTP 415
+	NAK_C_REC_MISSING =			222;		// record missing (no HTTP equiv)
+	NAK_C_REC_DUP =				223;		// multiple records (no HTTP equiv)
+
+	// 224-239	Negative acks, server side (CoAP, HTTP 500-515)
+	NAK_S_INTERNAL =			224;		// HTTP 500
+	NAK_S_NOTIMPL =				225;		// HTTP 501
+	NAK_S_BADGATEWAY =			226;		// HTTP 502
+	NAK_S_SVCUNAVAIL =			227;		// HTTP 503
+	NAK_S_GWTIMEOUT =			228;		// HTTP 504
+	NAK_S_PROXYNOTSUP =			229;		// HTTP 505
+	NAK_S_LOST_SUBSCR =			239;		// lost subscription (no HTTP equiv)
+
+	// 240-254	Negative acks, routing layer
+	NAK_R_NOROUTE =				240;		// no HTTP equiv	XXX remove?
+
+	// 255		Reserved
+}
+
+
+/*
+**  GdpDatum more-or-less corresponds to gdp_datum_t.
+**  This is the portion that gets signed by writers or has the
+**  signature verified for readers.
+**
+**  The signature is over logname, recno, ts, prevhash, and H(data).
+*/
+
+message GdpDatum
+{
+	required int64			recno = 1;			// record number
+	optional GdpTimestamp	ts = 2;				// timestamp
+	optional bytes			prevhash = 3;		// hash of previous record
+	repeated GdpProof		proof = 4;			// other hashes with offsets
+	required bytes			data = 5;			// actual content
+	optional GdpSignature	sig = 6;			// signature over rest of datum
+}
+
+/*
+**  Proofs are a hash of a previous record and the offset of that
+**  record relative to the current record.  Offsets are unsigned but
+**  always treated as if they were negative, i.e., they can only
+**  point back in time.
+*/
+
+message GdpProof
+{
+	required uint64			offset = 1;			// record offset
+	required bytes			hash = 2;			// hash of that record
+}
+
+/*
+**  GdpTimestamp is the on-the wire representation of a EP_TIME_SPEC.
+*/
+
+message GdpTimestamp
+{
+	optional int64			sec = 1 [default = -9223372036854775807];
+									// EP_TIME_NOTIME = INT64_MIN + 1
+	optional uint32			nsec = 2;
+	optional float			accuracy = 3;
+}
+
+/*
+**  Log metadata must be independently serialized (i.e., not using
+**  protobufs) since it has to stand on its own when creating a log.
+**  We could serialize it as a protobuf, but that might not survive
+**  software updates.  Thus, it's just listed as "bytes" for the type.
+**  See gdp/gdp_gclmd.[ch] for details.
+*/
+
+message GdpMetadata
+{
+	required bytes			data = 1;
+	optional GdpSignature	sig = 2;			// needed?
+}
+
+/*
+**  Signatures are used to sign both PDUs and datums.
+*/
+
+message GdpSignature
+{
+	required bytes			sig = 1;
+}
+
+/*
+**  A list of datums; generally there will be at least one
+*/
+
+message GdpDatumList
+{
+	repeated GdpDatum		d = 1;				// the list of datums
+}
+
+//message GdpTrailer
+//{
+//	optional GdpSignature	sig = 1;
+//}

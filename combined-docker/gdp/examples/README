@@ -1,0 +1,10 @@
+This directory contains example code intended to be used to help
+understand how to use the GDP.  In particular, machine-mon.c is a
+program that will periodically sample some performance statistics
+and log them as JSON to a GCL.  See also the programs gdp-reader
+and gdp-writer in the apps directory.
+
+If you have the Python bindings installed, see also lang/python/apps
+for some examples (if you've done a Debian install these will be
+in /usr/share/doc/gdp/examples).  In particular, there is a Python
+version of machine-mon as machine-mon.py.

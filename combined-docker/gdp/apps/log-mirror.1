@@ -1,0 +1,65 @@
+.Dd September 18, 2015
+.Dt LOG-MIRROR 1
+.Os Swarm-GDP
+.Sh NAME
+.Nm log-mirror
+.Nd mirror one GDP log to another
+.Sh SYNOPSIS
+.Nm log-mirror
+.Op Fl D Ar debug-spec
+.Op Fl G Ar router-ip
+.Ar source-log
+.Ar target-log
+.Sh DESCRIPTION
+.Nm
+mirrors one GDP log to another.
+It can be used for dumb replication.
+.Pp
+When it starts up it begins reading data from the source log
+starting after the last record in the target log.
+In other words,
+.Nm
+will
+.Dq "catch up"
+with records that that have been previously written to the source
+but not copied into the target.
+.Sh OPTIONS
+.Bl -tag
+.It Fl D Ar debug-spec
+Turns on debugging flags using the libep-style format.
+Useful only with the code in hand.
+.It Fl G Ar router-ip
+Contact the given IP address (which may be a DNS name)
+to get a connection to the GDP routing layer.
+This will be replaced by automatic discovery
+(for example, using Zeroconf)
+soon.
+The address may have an optional port number after a colon.
+If this is not specified,
+the names listed in the
+.Va swarm.gdp.routers
+runtime administrative parameter
+are searched.
+.El
+.Sh EXIT STATUS
+.Nm
+should not exit except on error or manual termination.
+.Bl -tag
+.It Li EX_UNAVAILABLE
+There was some failure during startup or execution.
+.It Li EX_USAGE
+Command line parameters are incorrect.
+.El
+.\".Sh ADMINISTRATIVE PARAMETERS
+.\".Sh ENVIRONMENT
+.\".Sh FILES
+.\".Sh SEE ALSO
+.\".Xr gdp 7 ,
+.\".Xr gdplogd 8
+.\".Sh EXAMPLES
+.Sh BUGS
+There is no check to make sure that the two logs have previously
+had the same data.
+For example, you could mirror A into T and later mirror B into T
+or even T into A without any error.
+This is unlikely to be fixed.

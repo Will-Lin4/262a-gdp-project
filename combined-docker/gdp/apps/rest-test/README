@@ -1,0 +1,89 @@
+To run the *.js tests:
+----------------------
+
+Copy all the .js and .html files to the root directory of your webserver
+Configure SCGI and gdp-rest
+
+TODO:
+
+Allow running tests without user interaction
+
+To run the the gdp-rest-testcases.py tests:
+-------------------------------------------
+
+# The gdp-rest-01.eecs.berkeley.edu host is servicing real GDP
+# requests on the /gdp/v1/gcl URI using installed gdp binaries, but
+# also supports development work. HTTP requests on the /gdp/v2/gcl URI
+# are directed to development binaries in a developer's git workspace,
+# when properly configured to do so (see below).
+
+# The gdp-rest-01.eecs.berkeley.edu host is not serving as a permanent
+# home for GCLs. For development and test purposes, gdplogd2 is
+# started before the test suite is run, but is always stopped at the
+# end of each test run, after which all GCLs are cleaned off
+# gdp-rest-01! Since active keys will be on gdp-rest-01 permanently,
+# care should be taken to only clean up test keys! Note that the
+# gdp-rest-01 gdplogd2-wrapper.sh script has been customized such that
+# gdplogd2 prefers connecting to gdp-01, causing RESTful unit tests to
+# travel from gdp-rest-01 out through the first default router
+# (usually gdp-03), then through gdp-01, before reaching gdp-rest-01's
+# gdplogd2 test instance.
+
+#
+# gdp-rest-01 development testbed
+#
+
+# if the following file already exists, then simply edit to suit instead!
+$ cp /usr/sbin/gdp-rest-wrapper.sh /usr/sbin/gdp-rest-wrapper-v2.sh
+$ diff /usr/sbin/gdp-rest-wrapper.sh /usr/sbin/gdp-rest-wrapper-v2.sh 
+12,14c12,14
+< : ${GDP_REST_ARGS:="-D*=10"}
+< : ${GDP_REST_BIN:=$GDP_ROOT/sbin/gdp-rest}
+< : ${GDP_REST_LOG:=$GDP_LOG_DIR/gdp-rest.log}
+---
+> : ${GDP_REST_ARGS:="-D*=10 -p 8002 -u /gdp/v2"}
+> : ${GDP_REST_BIN:=/home/rpratt/src-signpost/gdp/apps/gdp-rest}
+> : ${GDP_REST_LOG:=$GDP_LOG_DIR/gdp-rest-v2.log}
+$
+
+$ cd /etc/systemd/system
+# if the following file already exists, no need to revise it.
+$ cp gdp-rest.service gdp-rest-v2.service
+$ diff gdp-rest.service gdp-rest-v2.service
+13c13
+< ExecStart=/bin/sh /usr/sbin/gdp-rest-wrapper.sh
+---
+> ExecStart=/bin/sh /usr/sbin/gdp-rest-wrapper-v2.sh
+18c18
+< SyslogIdentifier=gdp-rest
+---
+> SyslogIdentifier=gdp-rest-v2
+$
+
+# The following are already configured properly (docs on redmine, if needed):
+#
+#    /etc/lighttpd/lighttpd.conf
+#    /etc/lighttpd/conf-enabled/10-scgi.conf
+# 
+
+$ systemctl enable gdp-rest-v2.service
+$ systemctl start gdp-rest-v2.service
+$ systemctl restart lighttpd
+
+# Edit gdp-rest-testcases.py (see "test_auth" section) and
+# /etc/lighttpd/.plainauth to suit development needs.
+
+# Run the testcases to verify development work
+$ ./gdp-rest-testcases.py
+
+# lather, rinse, repeat! ;)
+
+# when done with development:
+#
+# 1) do not commit your edited test_auth username,password to the test script!
+# 2) remove any temporarily added test_auth entry from /etc/lighttpd/.plainauth
+# 3) disable /gdp/v2/gcl (sudo systemctl disable --now gdp-rest-v2.service)
+# 4) restart lighttpd (sudo systemctl restart lighttpd.service)
+#
+# leave everything else in place for the next RESTful todo item...
+#

@@ -1,0 +1,114 @@
+<html>
+<head><title>RESTful Demo (Mac, Python Client)</title></head>
+<body>
+<pre>
+#!/opt/local/bin/python2.7
+
+# Warning:
+#
+# The MacOS 10.12 default python suffers from an openssl bug,
+# so an alternate python2.7 package was installed for this demo...
+#
+
+import json
+import requests
+
+def page_display(p):
+    if p != None:
+        print "STATUS:"
+        print p.status_code
+        print "HEADERS:"
+        print p.headers
+        print "CONTENT:"
+        print p.content
+    else:
+        print "Error: no page"
+#
+
+# shared
+test_auth = ("PLEASE_EDIT_username", "PLEASE_EDIT_password")
+json_header = { 'Content-type': 'application/json' }
+
+def demo_write(demo_value, gcl_name):
+    json_body = {
+        "demo" : demo_value,
+        "gcl_name" : gcl_name
+    }
+    wrec = requests.post("https://gdp-rest-01.eecs.berkeley.edu/gdp/v1/gcl/" +
+                         gcl_name,
+                         auth = test_auth,
+                         timeout = 60,
+                         headers = json_header,
+                         data = json.dumps(json_body)) # serialize json_body
+    print "\n==== PUT REC Response Page:"
+    page_display(wrec)
+    print "==== PUT GET REC Response Page\n"
+
+    if wrec.status_code == 200:
+        print "Info: wrote {}".format(demo_value)
+        return True
+    else:
+        print "Error: write to GCL {}".format(gcl_name)
+        return False
+
+#
+
+def demo_read(demo_value, gcl_name):
+    # In a get request, recno= may be positive or negative, where 1 obtains
+    # the first record and -1 obtains the last record by counting backwards
+    # one record from the log end.
+    rrec = requests.get("https://gdp-rest-01.eecs.berkeley.edu/gdp/v1/gcl/" +
+                         gcl_name + "?recno=last",
+                         auth = test_auth,
+                         timeout = 60)
+
+    print "\n==== GET REC Response Page:"
+    page_display(rrec)
+    print "==== END GET REC Response Page\n"
+
+    rrec_j = rrec.json()
+    if rrec.status_code == 200 and rrec_j["demo"] == demo_value:
+        print "Info: read {}".format(rrec_j["demo"])
+        return True
+    else:
+        print "Error: read from GCL {}".format(gcl_name)
+        return False
+#
+
+def demo_restful_use():
+
+    json_body = {
+        # log name convention: "reverse_org_id.device.device_id",
+        # for example "edu.berkeley.eecs.swarmlab.device.01aa02bb03cc"
+        "external-name" : "PLEASE_EDIT_external_name_of_log",
+    }
+
+    pgcl = requests.put("https://gdp-rest-01.eecs.berkeley.edu/gdp/v1/gcl",
+                        auth = test_auth,
+                        timeout = 60,
+                        headers = json_header,
+                        data = json.dumps(json_body)) # serialize json_body
+    
+    print "\n==== PUT GCL Response Page:"
+    page_display(pgcl)
+    print "==== END PUT GCL Response Page\n"
+
+    if pgcl.status_code == 201:
+        pgcl_j = pgcl.json()
+        gcl_name = pgcl_j["gcl_name"]
+        gdplogd_name = pgcl_j["gdplogd_name"]
+        if gcl_name != None and gdplogd_name != None:
+            print "Info: created GCL {}".format(gcl_name)
+            if demo_write("20170709 EC Workshop", gcl_name):
+                demo_read("20170709 EC Workshop", gcl_name)
+            else:
+                print "Error: demo_write failed"
+    else:
+        print "Warning: response status code {}".format(pgcl.status_code)
+#
+
+demo_restful_use()
+
+</pre>
+</body>
+</html>

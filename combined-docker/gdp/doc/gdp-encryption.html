@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type">
+    <title>Encryption in the Global Data Plane</title>
+    <meta content="Eric Allman" name="author">
+  </head>
+  <body>
+    <p> </p>
+    <h1>Encryption in the Global Data Plane</h1>
+    <p>Eric Allman, Swarm Lab, U.C. Berkeley</p>
+    <p><br>
+    </p>
+    <p>This is a working document, more musing and request for comment than
+      tutorial.&nbsp; Nothing herein is definitive.</p>
+    <p><br>
+    </p>
+    <h2>Issues</h2>
+    Need reasonable efficiency.&nbsp; Implies not doing public key operations on
+    a per-record basis, which in turn means using symmetric keys across multiple
+    records.<br>
+    <br>
+    Need to handle revocation.<br>
+    <br>
+    How to retroactively grant permission?&nbsp; This is the flip side of
+    revocation: you want a new reader to be able to read data already
+    written.&nbsp; Simple if you share the secret keys around, harder if you do
+    not.<br>
+    <br>
+    Two major options: might have key pairs associated with readers, and the
+    writer grants permission to specific readers, versus sharing the secret key
+    with all readers.&nbsp; Either way there are key management issues, but they
+    are different.&nbsp; This discussion attempts to discuss both options.<br>
+    <br>
+    <h2>Operations</h2>
+    Assumption: most of the Writing and Reading operations are amenable to
+    caching.&nbsp; These algorithm overviews do not include caching to keep
+    things simple.<br>
+    <p>Nomenclature:<br>
+    </p>
+    <ul>
+      <li>K = symmetric key</li>
+      <li>P = public key</li>
+      <li>S = secret key</li>
+      <li>E<sup>K</sup>(m), D<sup>K</sup>(m) = encrypt or decrypt m using key K
+        (also applies to P and S; E<sup>K</sup> &equiv; D<sup>K</sup> for
+        symmetric keys K)</li>
+      <li>L = a log</li>
+      <li>G<sub>L</sub> = corresponding generational log (to store key
+        information)<br>
+      </li>
+      <li>G<sub>L:g</sub> = information corresponding to generation g<br>
+      </li>
+    </ul>
+    <h3>Creating a Log L<br>
+    </h3>
+    <ol>
+      <li>Create a (symmetric) key K</li>
+      <li>Create a key pair (S<sub>r1</sub>, P<sub>r1</sub>) [only if sharing
+        secret key]<br>
+      </li>
+      <li>Encrypt K with P<sub>i</sub>, i &isin; { self, r<sub>1</sub>, r<sub>2</sub>
+        ...}, self is your own key, and r<sub>i</sub> are readers [only one if
+        sharing secret key]<br>
+      </li>
+      <li>Create Generational Log G<sub>L</sub> unique to this log L<br>
+      </li>
+      <li>Write E<sup>P<sub>i</sub></sup>(K) &forall;i to G<sub>L</sub> (this is
+        generation G<sub>L:1</sub>)<br>
+      </li>
+    </ol>
+    <h3>Writing</h3>
+    <ol>
+      <li>Writer reads G<sub>L:g</sub> from G<sub>L</sub>, where G<sub>L:g</sub>
+        is the last entry in G<sub>L</sub></li>
+      <li>Use S<sub>self</sub> to decrypt K from G<sub>L:g</sub></li>
+      <li>Use K to encrypt data</li>
+      <li>Prepend generation number g (unencrypted) before writing encrypted
+        data E<sub>K</sub>(m)<br>
+      </li>
+    </ol>
+    <h3>Reading (Normal Case)<br>
+    </h3>
+    <ol>
+      <li>Reader reads datum X and extracts generation number g<br>
+      </li>
+      <li>Look up G<sub>L:g</sub> from G<sub>L</sub></li>
+      <li>See if we have a secret key S<sub>rN</sub> that will decrypt one of
+        the encrypted copies of K; if not, fail (but see Problem Case below)<br>
+      </li>
+      <li>Decrypt remainder of datum with K<br>
+      </li>
+    </ol>
+    <h3>Revocation</h3>
+    <p>Revocation looks very similar to creation.</p>
+    <ol>
+      <li>Create new symmetric key K&prime;</li>
+      <li>Create new key pair (S&prime;<sub>r1</sub>, P&prime;<sub>r1</sub>)
+        [only if sharing secret key]</li>
+      <li>Encrypt K&prime; with P<sub>self</sub>, P<sub>r1</sub>, P<sub>r2</sub>...
+        (need not be the same set of readers)</li>
+      <li>Encrypt old key K with new key K&prime;<br>
+      </li>
+      <li>Write encrypted K and E<sup>P<sub>i</sub></sup>(K) &forall;i to G<sub>L</sub>
+        (this creates a new generation)<sub></sub></li>
+      <li>Start using K&prime; as K</li>
+    </ol>
+    <h3>Reading (Problem Case)</h3>
+    <p>This could be because you have no access, or you do but you have to read
+      backwards through generations to find the K you need for the record.<br>
+    </p>
+    <ol>
+      <li>Reader reads datum and extracts g from datum, reads G<sub>L,g</sub>
+        from G<sub>L</sub>, but does not have a valid secret key to decrypt it<br>
+      </li>
+      <li>Read G<sub>L,n</sub> from G<sub>L</sub> where n is the most recent
+        generation</li>
+      <li>If no access to that generation, give up (means your access has been
+        denied)<br>
+      </li>
+      <li>Use that access to decrypt K</li>
+      <li>For k &isin; {n&ndash;1, n&ndash;2, ... i}, use K<sub>k+1</sub> to
+        decrypt K<sub>k</sub></li>
+      <li>Stop when you find a valid S</li>
+    </ol>
+    <br>
+    <h2>Security Analysis/Discussion/Questions</h2>
+    <p>Once a reader has access to any point in the log, they have access to all
+      points prior.&nbsp; This could be mitigated by not including E<sup>K&prime;</sup>(K)
+      in new G<sub>L</sub> records, but then granting backward access would be
+      hard.<br>
+    </p>
+    <p>If each reader had its own key pair, then this looks like an ACL.&nbsp;
+      "Reader" here could mean "application", "user", "administrative domain",
+      or something else.&nbsp; Alternatively, each log could have its own key
+      pair, which would mean that somehow that secret key S<sub>L</sub> has to
+      be distributed to all possible readers, and revocation becomes a matter of
+      changing S<sub>L</sub> as well as K.&nbsp; The encryption key pair should
+      probably <i>not</i> be the same one used for signing.<br>
+    </p>
+    <p>This description ignores the step of signing the updates to G<sub>L</sub>.&nbsp;
+      Clearly G<sub>L</sub> will need a key pair of its own, and it's not clear
+      if that might be shared with the original log L.<br>
+    </p>
+    <p>If secret keys are are being created per log and distributed around, they
+      need to be encrypted themselves; at some point there has to be a
+      decryption key <i>not</i> held on disk in encrypted form or the game is
+      over.&nbsp; Q: could TPM help us here?<br>
+    </p>
+  </body>
+</html>

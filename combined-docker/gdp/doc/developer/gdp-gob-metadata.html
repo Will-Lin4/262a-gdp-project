@@ -1,0 +1,118 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <title>GDP GCL Metadata</title>
+  </head>
+  <body>
+    <h1>GDP GCL Metadata</h1>
+    <h4>Eric Allman, Ubiquitous Swarm Lab, U.C. Berkeley<br>
+      Draft Document Version 0.10, 2015-01-23<br>
+    </h4>
+    <p>The GDP supports a limited amount of write-once per-GCL metadata.&nbsp;
+      It can be added when a GCL is created and is thenceforth immutable.<br>
+    </p>
+    <p>Each piece of GCL metadata consists of a name, a data length, and
+      (optionally) some data.&nbsp; Any typing information is implied by the
+      name.<br>
+    </p>
+    <p>Names are exactly four bytes.&nbsp; All names with the high-order octet
+      set to zero are reserved for use by the system.&nbsp; It is recommended
+      that application defined names be exactly four ASCII characters, e.g.,
+      'ABCD' (which is equal to 0x41424344).&nbsp; Note that numeric constants
+      should be used, since the valid C constant 'ABCD' might be represented as
+      0x44434241 on some architectures; it is the numeric constant which defines
+      the name.&nbsp; The name that is all zeros is reserved to indicate "end of
+      list".&nbsp; <i>[[Registration of codes is To Be Done.]]</i><br>
+    </p>
+    <p>Lengths are three bytes packed into a four byte integer, representing the
+      number of octets in the data.&nbsp; The top eight bits are reserved for
+      future use.&nbsp; They must be zero when sent and ignored on receipt.<br>
+    </p>
+    <p>Data is a series of opaque bytes.&nbsp; It might be encrypted, at the
+      discretion of the application.<br>
+    </p>
+    <h2>Sending and Accessing Metadata</h2>
+    <p>The metadata interface is as follows:<br>
+    </p>
+    <p><samp>&nbsp;&nbsp;&nbsp; gdp_gclmd_t&nbsp;&nbsp;&nbsp;&nbsp;
+        *gdp_gclmd_new(void);</samp></p>
+    <p><samp>&nbsp;&nbsp;&nbsp; void&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; gdp_gclmd_free(gdp_gclmd_t *gmd);</samp></p>
+    <p><samp>&nbsp;&nbsp;&nbsp; EP_STAT&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp; gdp_gclmd_add(gdp_gclmd_t *gmd,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; gdp_gclmd_id_t id,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; size_t len,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; const void *data);<br>
+      </samp></p>
+    <p><samp>&nbsp;&nbsp;&nbsp; EP_STAT&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp; gdp_gclmd_get(gdp_gclmd_t *gmd,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; int index,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; gdpd_gclmd_id_t *id,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; size_t *len,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; const void **data);<br>
+      </samp></p>
+    <p>These routines allocate and free a data structure (which will be
+      dynamically expanded if needed), add a new metadata field with the
+      indicated name, length, and value (the data will be copied), and return a
+      field at a given index (the data is <em>not</em> copied).<br>
+    </p>
+    <p>To create a new GCL with metadata an application should create a new data
+      structure using <code>gdp_gclmd_new</code>, populate it using <code>gdp_gclmd_add</code>,
+      send it as a parameter to <code>gdp_gcl_create</code>, and then free the
+      metadata using <code>gdp_gclmd_free</code>.<br>
+    </p>
+    <p>To access metadata in an existing GCL an application needs to fetch the
+      metadata:<br>
+    </p>
+    <p><samp>&nbsp;&nbsp;&nbsp; EP_STAT&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp; gdp_gcl_getmetadata(gdp_gcl_t *gcl,<br>
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp; gdp_gclmd_t **gmdp); </samp></p>
+    <p>This fetches the metadata into memory (if it is not already there) and
+      passes a metadata structure back.&nbsp; This structure can then be
+      interrogated using <code>gdp_gclmd_get</code>.&nbsp; <i>[[Who owns the
+        metadata, i.e., who has to do gdp_gclmd_free?]]</i><br>
+      <samp></samp></p>
+    <h2>Representation</h2>
+    <p>There are potentially three different representations for metadata:
+      in-memory, on-the-wire, and on-disk.<br>
+    </p>
+    <h3>In-Memory<br>
+    </h3>
+    <p>The internal representation is opaque as far as the client program is
+      concerned, with all interaction done by function calls in deference to
+      alternate language bindings.&nbsp; The API is described above.&nbsp; <i>[[Details
+        To Be Done.]]</i><br>
+    </p>
+    <h3>On-The-Wire</h3>
+    <p>When sent over the network, all integers are sent in network byte order
+      (big-endian) as is standard for network protocols.&nbsp; The
+      representation for each metadatum is a four-octet integer name.&nbsp; If
+      that is zero then no more metadata fields are present and no more data is
+      sent.&nbsp; If non-zero, the name is followed by a four-octet length which
+      is immediately followed by that number of bytes of data.&nbsp; Note that
+      the integers are not guaranteed to be word aligned.<br>
+    </p>
+    <h3>On Disk</h3>
+    <p><i>[[To be written &mdash; really need to document everything, not just
+        metadata, probably in another document.]]</i><br>
+    </p>
+    <h3> </h3>
+  </body>
+</html>

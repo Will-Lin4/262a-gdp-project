@@ -1,0 +1,46 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:BN_GF2m_mod_mul_arr
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:EC_POINT_mul
+   fun:EC_KEY_generate_key
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:BN_num_bits_word
+   fun:BN_num_bits
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:i2o_ECPublicKey
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:X509_PUBKEY_set
+   fun:i2d_PUBKEY
+   fun:ASN1_i2d_bio
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:BN_num_bits_word
+   fun:BN_num_bits
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:i2o_ECPublicKey
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:X509_PUBKEY_set
+   fun:i2d_PUBKEY
+   fun:ASN1_i2d_bio
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:EVP_EncodeBlock
+   fun:EVP_EncodeUpdate
+   fun:PEM_write_bio
+   fun:PEM_ASN1_write_bio
+   fun:PEM_write_bio_PKCS8_PRIV_KEY_INFO
+   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+   fun:PEM_write_bio_PKCS8PrivateKey
+   fun:PEM_write_bio_PrivateKey
+}
+

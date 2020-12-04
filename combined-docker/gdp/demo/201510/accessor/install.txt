@@ -1,0 +1,27 @@
+## Assume that $PTII is set to the root of the ptolemy tree
+## Tested with revision 73599
+
+Step 1: Do a "make" in the /gdp/lang/java
+
+Step 2: Create jar (call from /gdp/lang/java)
+> jar cf GDP-0.3-1.jar org/terraswarm/gdp/*.class
+
+Step 3: Copy jar files to $PTII/lib
+> cp *.jar $PTII/lib
+
+Step 4: Copy /gdp/libs/libgdp.0.2.so to $PTII/lib
+
+
+Step 5: Copy GDP.module to ptolemy/actor/lib/jjs/modules/GDP
+> cp -a GDP.modules $PTII/ptolemy/actor/lib/jjs/modules/GDP
+
+Step 6: Apply patch file, call from $PTII
+> patch -p0 -i configfiles.patch
+
+Step 7: Compile ptolemy
+autoconf
+./configure
+ant
+cd bin
+make
+./vergil

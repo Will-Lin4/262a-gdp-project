@@ -1,0 +1,4 @@
+Global Data Plane library
+
+C development environment for accessing the Global Data Plane.
+Includes headers and libraries.

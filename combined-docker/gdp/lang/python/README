@@ -1,0 +1,494 @@
+# ----- BEGIN LICENSE BLOCK -----
+#	GDP: Global Data Plane
+#	From the Ubiquitous Swarm Lab, 490 Cory Hall, U.C. Berkeley.
+#
+#	Copyright (c) 2015-2019, Regents of the University of California.
+#	All rights reserved.
+#
+#	Permission is hereby granted, without written agreement and without
+#	license or royalty fees, to use, copy, modify, and distribute this
+#	software and its documentation for any purpose, provided that the above
+#	copyright notice and the following two paragraphs appear in all copies
+#	of this software.
+#
+#	IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+#	SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST
+#	PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+#	EVEN IF REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#	REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
+#	LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+#	FOR A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION,
+#	IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO
+#	OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
+#	OR MODIFICATIONS.
+# ----- END LICENSE BLOCK -----
+
+
+NOTE:
+For latest version of this, use `pydoc`.
+
+Help on package gdp:
+
+NAME
+    gdp
+
+DESCRIPTION
+    A Python API for libgdp. Uses ctypes and shared library versions of
+    libgdp and libep.
+    
+    This package exports a number of classes, and a few utility functions.
+    Here is a very brief summary, but please see the detailed C-api docs.
+    
+    - GDP_NAME:      a name in GDP
+    - GDP_GIN :      a GDP instance
+    - GDP_EVENT:     an asynchronous event
+    - GDP_DATUM:     a GDP datum: (kind of) a record in memory
+    - GDP_HASH:      a cryptographic hash
+    - GDP_SIG:       a signature
+    - GDP_BUF:       a generic buffer
+    - GDP_MD:            a metadata object
+    - GDP_OPEN_INFO: information regarding metadata
+    
+    Note that a number of methods take a NULL/None value, which implies
+    that the underlying C-library makes a decision on what value to
+    use (based on configuration parameters or defaults). Providing a
+    non-null argument is simply a way to override these defaults.
+
+
+Help on class GDP_GIN in gdp:
+
+gdp.GDP_GIN = class GDP_GIN(__builtin__.object)
+ |  A class that represents a GDP Instance. A GIN resembles an open
+ |  file handle in various ways.
+ |  
+ |  Note that get_next_event is both a class method (for events on any of
+ |  the GIN's) as well as an instance method (for events on a particular
+ |  GIN). The auto-generated documentation might not show this, but
+ |  something to keep in mind.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      close this GCL handle, and free the allocated resources
+ |  
+ |  __eq__(self, other)
+ |  
+ |  __init__(self, name, iomode, open_info={}, **kwargs)
+ |      Open a GDP instance for a GDP object with given name and io-mode.
+ |      
+ |      name=<name-of-gin>, iomode=<mode>
+ |      name is a GDP_NAME object for the GDP object
+ |      mode is one of the following: GDP_MODE_ANY, GDP_MODE_RO,
+ |                                    GDP_MODE_AO, GDP_MODE_RA
+ |      open_info is a dictionary. It contains extra information
+ |      such as the private signature key, etc. The key may be
+ |      optional, depending on how the log was created and if a
+ |      log-server is set up to reject unsigned appends, for example.
+ |  
+ |  append(self, datum, prevhash=None)
+ |      Write a datum to the GCL. If prevhash is not supplied, the
+ |      C library inserts a reasonable value.
+ |  
+ |  append_async(self, datum, prevhash=None)
+ |      Async version of append. A writer ought to check return status
+ |      by invoking get_next_event, potentially in a different thread.
+ |      
+ |      [This is different than the C library version: The C-library
+ |      version expects a list of datuns, but we only support a single
+ |      datum at a time... at least for the moment]
+ |  
+ |  getmetadata(self)
+ |      return the metadata included at creation time.
+ |          Represented as a python dict
+ |  
+ |  getname(self)
+ |      Get the name of the corresponding GOB, returns a GDP_NAME object
+ |  
+ |  getnrecs(self)
+ |      Get number of records
+ |  
+ |  print_to_file(self, fh)
+ |      Print this GDP object to a file. Could be sys.stdout
+ |      The actual printing is done by the C library
+ |  
+ |  read_by_hash(self, hashbytes)
+ |      Same as read_by_recno, except takes a hash instead of recno
+ |  
+ |  read_by_hash_async(self, starthash, numrecs)
+ |      Asynchronous version of `read_by_hash` that supports reading
+ |      multiple records at a time.
+ |      For now, callbacks are not exposed to end-user. Events are
+ |      generated instead.
+ |  
+ |  read_by_recno(self, recno)
+ |      Returns a GDP_DATUM object corresponding to specified recno
+ |  
+ |  read_by_recno_async(self, start, numrecs)
+ |      Asynchronous version of `read_by_recno` that supports reading
+ |      multiple records at a time.
+ |      For now, callbacks are not exposed to end-user. Events are
+ |      generated instead.
+ |  
+ |  read_by_ts(self, tsdict)
+ |      Same as 'read_by_recno', but takes a time-stamp dictionary
+ |      instead of a record number.
+ |      The time-stamp dictionary has the following fields:
+ |      - tv_sec: seconds since epoch (an integer)
+ |      - tv_nsec: nano seconds (an integer)
+ |      - tv_accuracy: accuracy (a float)
+ |  
+ |  read_by_ts_async(self, startdict, numrecs)
+ |      Asynchronous version of `read_by_ts` that supports reading
+ |      multiple records at a time.
+ |      For now, callbacks are not exposed to end-user. Events are
+ |      generated instead.
+ |  
+ |  subscribe_by_hash(self, starthash, numrecs, timeout)
+ |      Subscriptions, but by a hash instead of a record number
+ |  
+ |  subscribe_by_recno(self, start, numrecs, timeout)
+ |      Subscriptions by a record number.
+ |      Refer to the C-API for more details.
+ |      For now, callbacks are not exposed to end-user. Events are
+ |      generated instead.
+ |  
+ |  subscribe_by_ts(self, startdict, numrecs, timeout)
+ |      Subscriptions, but by a timestamp dictionary instead of recno
+ |  
+ |  unsubscribe(self, cbfunc=None, cbarg=None)
+ |      Terminates existing subscription.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Class methods defined here:
+ |  
+ |  create(cls, name, logd_name, metadata) from __builtin__.type
+ |      create a new GCL with 'name' on 'logd_name'
+ |      metadata is a dictionary with keys as 32-bit unsigned integers
+ |  
+ |  get_next_event(cls, timeout) from __builtin__.type
+ |      Get events for ANY open gin
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |  
+ |  __dict__
+ |      dictionary for instance variables (if defined)
+ |  
+ |  __weakref__
+ |      list of weak references to the object (if defined)
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_gin_sub_cbfunc_t = <class 'ctypes.CFunctionType'>
+ |  
+ |  
+ |  gdp_gin_t = <class 'gdp.GDP_GIN.gdp_gin_t'>
+ |      Corresponds to gdp_gin_t structure exported by C library
+
+Help on class GDP_NAME in gdp:
+
+gdp.GDP_NAME = class GDP_NAME
+ |  Represents a GDP name. Each GDP name has potentially up to three
+ |  different representations:
+ |   - a 256 bit binary version
+ |   - a Base-64(ish) representation
+ |   - (optional) a more memorable version; for the moment, this is
+ |     hashed to get the binary version
+ |  
+ |  Methods defined here:
+ |  
+ |  __init__(self, name, force_internal=False)
+ |      takes either an internal name, or a printable name, or a human friendly
+ |          name, and creates a python object that can be passed around for the
+ |          various GDP calls
+ |  
+ |  internal_name(self)
+ |      Returns a python string that represents the internal binray name
+ |  
+ |  is_valid(self)
+ |      Borrowed from the GDP C api, tells if the name is valid or not
+ |  
+ |  printable_name(self)
+ |      Returns a python string that represents the printable name
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  PNAME_LEN = 43
+ |  
+ |  name_t = <class 'gdp.GDP_NAME.c_ubyte_Array_32'>
+ |  
+ |  
+ |  pname_t = <class 'gdp.GDP_NAME.c_ubyte_Array_44'>
+
+Help on class GDP_DATUM in gdp:
+
+gdp.GDP_DATUM = class GDP_DATUM
+ |  A class only for internal use. The C datum equivalent exposed to
+ |  python users is of a dictionary.
+ |  
+ |  This is to avoid any side effects that the underlying buffer
+ |  implementation may cause.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Destructor: Does nothing if this GDP datum was created by
+ |      passing an exisiting datum pointer
+ |  
+ |  __getitem__(self, key)
+ |  
+ |  __init__(self, **kwargs)
+ |      Constructor: Two ways of creating a new pythong GDP datum object:
+ |      - Create a new object and allocate new memeory for it by calling
+ |        the C library function
+ |      - Create a new object, but associate it with an existing memory
+ |        location.
+ |      In the first case: we need to free the memory when it is no longer
+ |      needed. In the second case: we shouldn't free memory allocated by
+ |      someone else.
+ |  
+ |  getbuf(self)
+ |      Return the GDP_BUF associated with this GDP_DATUM.
+ |  
+ |  getdlen(self)
+ |      Returns the length of the data in GDP_BUF associated with
+ |      this GDP_DATUM.
+ |  
+ |  gethash(self, gin)
+ |      Compute the hash of the datum for a given log?
+ |  
+ |  getrecno(self)
+ |      Get the corresponding record number associated with this datum
+ |  
+ |  getsig(self)
+ |      Return the signature as a binary string.
+ |      As of current, the signature is over (recno|data)
+ |  
+ |  getts(self)
+ |      Return the timestamp associated with this GDP_DATUM in the form of a
+ |      dictionary. The keys are: tv_sec, tv_nsec and tv_accuracy
+ |  
+ |  print_(self, fh, flags)
+ |      Print the GDP datum C memory location contents to a file handle fh.
+ |      fh could be sys.stdout, or any other open file handle. Flags are
+ |      predefined constants (see GDP_DATUM_PR*)
+ |      
+ |      Note: This just calls the corresponding C library function which
+ |      handles the printing
+ |  
+ |  reset(self)
+ |      Reset the datum
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_datum_t = <class 'gdp.GDP_DATUM.gdp_datum_t'>
+
+Help on class GDP_EVENT in gdp:
+
+gdp.GDP_EVENT = class GDP_EVENT
+ |  A class that represents a GDP event
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Destructor: Does nothing if this GDP datum was created by
+ |      passing an exisiting datum pointer
+ |  
+ |  __getitem__(self, key)
+ |  
+ |  __init__(self, **kwargs)
+ |      Creates a new object, but associate it with an existing memory
+ |      location.
+ |  
+ |  getdatum(self)
+ |  
+ |  getgin(self)
+ |  
+ |  getstat(self)
+ |  
+ |  gettype(self)
+ |      Get the event type for this event
+ |  
+ |  getudata(self)
+ |  
+ |  print_(self, fh)
+ |      Print the GDP event C memory location contents to a file handle fh.
+ |      fh could be sys.stdout, or any other open file handle. Flags are
+ |      predefined constants (see GDP_EVENT_PR*)
+ |      
+ |      Note: This just calls the corresponding C library function which
+ |      handles the printing
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_event_t = <class 'gdp.GDP_EVENT.gdp_event_t'>
+
+Help on class GDP_BUF in gdp:
+
+gdp.GDP_BUF = class GDP_BUF(__builtin__.object)
+ |  A class only for internal use. It is only a partially
+ |  implemented interface for the moment.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Free the memory, but only if we allocated it.
+ |  
+ |  __init__(self, **kwargs)
+ |      Creates a new buffer structure by calling C functions, unless
+ |      an existing pointer to a C-structure is provided to us
+ |      externally (by using a 'ptr=x' argument).
+ |  
+ |  drain(self)
+ |      simply remove the data from the buffer
+ |  
+ |  getlength(self)
+ |      Returns the length of the data associated with this buffer
+ |  
+ |  peek(self)
+ |      Peek into a buffer (does not drain it)
+ |  
+ |  read(self)
+ |      Read data from buffer (effectively drains it too)
+ |  
+ |  reset(self)
+ |      Reset the buffer
+ |  
+ |  write(self, data)
+ |      write data to buffer
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |  
+ |  __dict__
+ |      dictionary for instance variables (if defined)
+ |  
+ |  __weakref__
+ |      list of weak references to the object (if defined)
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_buf_t = <class 'gdp.GDP_BUF.gdp_buf_t'>
+
+Help on class GDP_HASH in gdp:
+
+gdp.GDP_HASH = class GDP_HASH(__builtin__.object)
+ |  A class only for internal use. It is only a partially
+ |  implemented interface for the moment.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Free the memory
+ |  
+ |  __eq__(self, other)
+ |  
+ |  __init__(self, alg, hashbytes, **kwargs)
+ |      Creates a new hash structure by calling C functions
+ |  
+ |  get(self)
+ |      Read data from hash structure
+ |  
+ |  getlength(self)
+ |      Returns the length of the data associated with this hash structure
+ |  
+ |  reset(self)
+ |      Reset the hash structure
+ |  
+ |  set(self, hashbytes)
+ |      write hashbytes to hash structure
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |  
+ |  __dict__
+ |      dictionary for instance variables (if defined)
+ |  
+ |  __weakref__
+ |      list of weak references to the object (if defined)
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_hash_t = <class 'gdp.GDP_HASH.gdp_hash_t'>
+
+Help on class GDP_SIG in gdp:
+
+gdp.GDP_SIG = class GDP_SIG(__builtin__.object)
+ |  A class only for internal use. It is only a partially
+ |  implemented interface for the moment.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Free the memory
+ |  
+ |  __init__(self, alg, sigbytes, **kwargs)
+ |      Creates a new sig structure by calling C functions
+ |  
+ |  get(self)
+ |      Read data from sig structure
+ |  
+ |  getlength(self)
+ |      Returns the length of the data associated with this sig structure
+ |  
+ |  reset(self)
+ |      Reset the sig structure
+ |  
+ |  set(self, sigbytes)
+ |      write sigbytes to sig structure
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |  
+ |  __dict__
+ |      dictionary for instance variables (if defined)
+ |  
+ |  __weakref__
+ |      list of weak references to the object (if defined)
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_sig_t = <class 'gdp.GDP_SIG.gdp_sig_t'>
+
+Help on class GDP_MD in gdp:
+
+gdp.GDP_MD = class GDP_MD
+ |  GCL Metadata equivalent -- for internal use only.
+ |  The C equivalent exposed to python users is of a dictionary.
+ |  
+ |  Methods defined here:
+ |  
+ |  __del__(self)
+ |      Destructor: Frees the C structure
+ |  
+ |  __init__(self, **kwargs)
+ |      Constructor: calls the C-function to allocate memory.
+ |  
+ |  add(self, md_id, data)
+ |      Add a new entry to the metadata set
+ |  
+ |  dump(self, fh, detail, indent)
+ |      Print the gdp_md C memory location contents to a file handle fh.
+ |      fh could be sys.stdout, or any other open file handle.
+ |      Note: This just calls the corresponding C library function which
+ |      handles the printing, details, and indentation.
+ |  
+ |  find(self, md_id)
+ |      Get a new entry from the metadata set by id
+ |  
+ |  get(self, index)
+ |      Get a new entry from the metadata set by index
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  gdp_md_t = <class 'gdp.GDP_MD.gdp_md_t'>
+

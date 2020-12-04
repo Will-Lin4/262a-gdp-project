@@ -1,0 +1,66 @@
+{
+    "name": "@terraswarm/gdp",
+    "version": "0.8.3",
+    "author": {
+        "email": "cxh@eecs.berkeley.edu",
+        "name": "Christopher Brooks"
+    },
+    "contributors": [
+        {
+            "email": "eric@cs.berkeley.edu",
+            "name": "Eric Allman"
+        },
+        {
+            "name": "Alec Dara-Abrams"
+        },
+        {
+            "email": "lutz@berkeley.edu",
+            "name": "Kenneth Lutz"
+        },        
+        {
+            "email": "mor@eecs.berkeley.edu",
+            "name": "Nitesh Mor"
+        }        
+    ],
+    "description": "The Global Data Plane",
+    "dependencies": {
+        "ffi": ">2.0.0",
+        "fs": "",
+        "jsesc": "~2.2.0",
+        "os": "",
+        "path": "",
+        "posix-getopt": "~1.2.0",
+        "ref": "~1.3.2",
+        "ref-array": "~1.1.2",
+        "ref-struct": "~1.0.2",
+        "ref-union": "",
+        "sleep": "~3.0.1"
+    },
+    "devDependencies": {
+        "mocha": ""
+    },
+    "files": [
+        "apps",
+        "adm",
+        "gdpjs",
+        "index.js",
+        "libs",
+	"test"
+    ],
+    "license": "BSD-2-Clause",
+    "maintainers": [
+        {
+            "email": "cxh@eecs.berkeley.edu",
+            "name": "Christopher Brooks"
+        }
+    ],
+    "main": "index.js",
+    "os" : [ "darwin", "linux" ],
+    "repository" :
+    { "type" : "git",
+      "url" : "https://repo.eecs.berkeley.edu/git-anon/projects/swarmlab/gdp.git"
+    },
+    "scripts": {
+        "test": "node_modules/.bin/mocha test/mocha"
+    }
+}
