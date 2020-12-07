@@ -1,0 +1,4 @@
+computation_id		path_to_compute_lambda						path_to_aggregator_lambda
+mplambda_local		./lambda_images/mplambda_local_compute		./lambda_images/mplambda_local_aggregator
+mplambda_aws		./lambda_images/mplambda_aws_compute		./lambda_images/mplambda_aws_aggregator
+test_local			./lambda_images/test_local_compute			./lambda_images/test_local_aggregator
