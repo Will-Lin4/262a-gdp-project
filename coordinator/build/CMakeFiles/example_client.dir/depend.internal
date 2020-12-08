@@ -7,4 +7,4 @@ CMakeFiles/example_client.dir/src/example_client.cpp.o
  ../include/json.hpp
  ../include/problem_statement.h
  ../include/shared.h
- /root/cmake_coordinator/src/example_client.cpp
+ /root/coordinator/src/example_client.cpp

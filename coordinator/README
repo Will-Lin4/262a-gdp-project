@@ -1,0 +1,12 @@
+Usage
+	Launch the example_coordinator first, then launch the example_client. The example_client program requires a json parameter file.
+
+Lambda Images
+	In the lambda_images directory, there is a file called lambda_table. In the local case, entries are structured as
+
+		<computation_id>	<path_to_local_compute_lambda>		<path_to_local_aggregator_lambda>
+
+	whereas in the aws case, these are structured as
+
+		<computation_id>	<compute_lambda_name>		<aggregator_lambda_name>
+

@@ -7,19 +7,17 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <chrono>
 
 #include "lambda_service.h"
 #include "problem_statement.h"
-//#include "json.hpp"
 
-//#if HAS_AWS_SDK
 #include <aws/lambda-runtime/runtime.h>
 #include <aws/core/Aws.h>
 #include <aws/core/utils/Outcome.h>
 #include <aws/lambda/LambdaClient.h>
 #include <aws/lambda/model/InvokeRequest.h>
 #include <aws/core/utils/json/JsonSerializer.h>
-//#endif
 
 #define LOW_QOS_LAMBDAS		1
 #define MEDIUM_QOS_LAMBDAS	8
@@ -219,29 +217,36 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 								 int num_lambdas)
 {
 	using std::string; using std::vector;
-	// Set up some mplambda specific variables
+	// Find the lambdas to execute
+	string comp_id = problem_set.find(problem_id)->second.computation_id;
+	string compute_lambda = lambda_set.find(comp_id)->second.compute_path;
+	string aggregator_lambda = lambda_set.find(comp_id)->second.aggregator_path;
+	int duration = problem_set.find(problem_id)->second.duration;
+
+	// Set the deadline
+	auto deadline = std::chrono::system_clock::now();
+	deadline += std::chrono::seconds(duration);
+	std::time_t t = std::chrono::system_clock::to_time_t(deadline);	
+	string time_limit = std::ctime(&t);		// Uses UTC
+
+	// Set up parameter vectors
 	vector<string> compute_vector;
 	vector<string> aggregator_vector;
 	compute_vector.reserve(3);
 	aggregator_vector.reserve(3);
 
-	// Find the lambdas to execute
-	string comp_id = problem_set.find(problem_id)->second.computation_id;
-	string compute_lambda = lambda_set.find(comp_id)->second.compute_path;
-	string aggregator_lambda = lambda_set.find(comp_id)->second.aggregator_path;
-	string time_limit = std::to_string(problem_set.find(problem_id)->second.duration);
+	compute_vector.push_back(compute_lambda);
+	compute_vector.push_back(problem_id);
+	compute_vector.push_back(time_limit);
+	aggregator_vector.push_back(aggregator_lambda);
+	aggregator_vector.push_back(problem_id);
+	aggregator_vector.push_back(time_limit);
 
 	// Choose subfunction to launch
 	switch (lambda_service)
 	{
 	// Launch AWS lambdas
 	case AWS_LAMBDA:
-		compute_vector.push_back(comp_id + "_compute");
-		compute_vector.push_back(problem_id);
-		compute_vector.push_back(time_limit);
-		aggregator_vector.push_back(comp_id + "_aggregator");
-		aggregator_vector.push_back(problem_id);
-		aggregator_vector.push_back(time_limit);
 		// Launch the computation lambdas
 		for (int i = 0; i < num_lambdas; ++i)
 		{
@@ -250,16 +255,8 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 		// Launch the aggregator lambda
 		launch_aws_lambda(aggregator_vector);
 		break;
-
 	// Launch local host lambdas
 	default:
-		compute_vector.push_back(compute_lambda);
-		compute_vector.push_back(problem_id);
-		compute_vector.push_back(time_limit);
-		aggregator_vector.push_back(aggregator_lambda);
-		aggregator_vector.push_back(problem_id);
-		aggregator_vector.push_back(time_limit);
-		std::cout << "Launching local lambdas" << std::endl;
 		// Launch the computation lambdas
 		for (int i = 0; i < num_lambdas; ++i)
 		{

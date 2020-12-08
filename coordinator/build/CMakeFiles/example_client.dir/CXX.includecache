@@ -362,7 +362,7 @@ json.hpp
 
 ../include/shared.h
 
-/root/cmake_coordinator/src/example_client.cpp
+/root/coordinator/src/example_client.cpp
 string
 -
 iostream
@@ -380,13 +380,13 @@ unistd.h
 chrono
 -
 client.hpp
-/root/cmake_coordinator/src/client.hpp
+/root/coordinator/src/client.hpp
 gdp_agent.hpp
-/root/cmake_coordinator/src/gdp_agent.hpp
+/root/coordinator/src/gdp_agent.hpp
 json.hpp
-/root/cmake_coordinator/src/json.hpp
+/root/coordinator/src/json.hpp
 problem_statement.h
-/root/cmake_coordinator/src/problem_statement.h
+/root/coordinator/src/problem_statement.h
 shared.h
-/root/cmake_coordinator/src/shared.h
+/root/coordinator/src/shared.h
 

@@ -1,4 +1,4 @@
-/root/cmake_coordinator/build/CMakeFiles/rebuild_cache.dir
-/root/cmake_coordinator/build/CMakeFiles/edit_cache.dir
-/root/cmake_coordinator/build/CMakeFiles/example_client.dir
-/root/cmake_coordinator/build/CMakeFiles/example_coordinator.dir
+/root/coordinator/build/CMakeFiles/rebuild_cache.dir
+/root/coordinator/build/CMakeFiles/edit_cache.dir
+/root/coordinator/build/CMakeFiles/example_client.dir
+/root/coordinator/build/CMakeFiles/example_coordinator.dir

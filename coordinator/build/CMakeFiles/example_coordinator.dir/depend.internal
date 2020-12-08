@@ -7,7 +7,7 @@ CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o
  ../include/lambda_service.h
  ../include/problem_statement.h
  ../include/shared.h
- /root/cmake_coordinator/src/example_coordinator.cpp
+ /root/coordinator/src/example_coordinator.cpp
  /usr/local/include/aws/core/AmazonSerializableWebServiceRequest.h
  /usr/local/include/aws/core/AmazonStreamingWebServiceRequest.h
  /usr/local/include/aws/core/AmazonWebServiceRequest.h
