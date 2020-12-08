@@ -1,33 +1,32 @@
 #ifndef COORDINATOR_HEADER
 #define COORDINATOR_HEADER
 
-#include <iostream>
-#include <string>
 #include <unordered_map>
 #include <vector>
+#include <string>
+#include <iostream>
 #include <fstream>
 #include <sstream>
 
-#include <mpl/packet.hpp>
 #include "lambda_service.h"
 #include "problem_statement.h"
-#include "json.hpp"
+//#include "json.hpp"
 
-#if HAS_AWS_SDK
+//#if HAS_AWS_SDK
 #include <aws/lambda-runtime/runtime.h>
 #include <aws/core/Aws.h>
 #include <aws/core/utils/Outcome.h>
 #include <aws/lambda/LambdaClient.h>
 #include <aws/lambda/model/InvokeRequest.h>
 #include <aws/core/utils/json/JsonSerializer.h>
-#endif
+//#endif
 
 #define LOW_QOS_LAMBDAS		1
 #define MEDIUM_QOS_LAMBDAS	8
 #define HIGH_QOS_LAMBDAS	16
 
-#define COMPUTE_LAMBDA_PROG		"./compute_lambda"
-#define AGGREGATOR_LAMBDA_PROG	"./aggregator_lambda"
+#define ALLOCATION_TAG "mplLambdaAWS"
+ 
 
 /*------------------------------------------------------------------------------
   The coordinator acts as a liason between a GDP client and the lambda service
@@ -59,6 +58,12 @@ private:
 	--------------------------------------------------------------------------*/
 	std::unordered_map<std::string, lambda_paths> lambda_set;
 
+public:
+	/*--------------------------------------------------------------------------
+	  Used for running lambdas on AWS.
+	--------------------------------------------------------------------------*/
+	std::shared_ptr<Aws::Lambda::LambdaClient> m_client;
+	Aws::SDKOptions options;
 
 public:
 	/*--------------------------------------------------------------------------
@@ -67,6 +72,7 @@ public:
 	  pairs.
 	--------------------------------------------------------------------------*/
 	coordinator();
+	~coordinator();
 
 	/*--------------------------------------------------------------------------
 	  This method checks to see if any problem_statement fields have been left
@@ -90,7 +96,7 @@ public:
 	  Otherwise this function will return true, and the specified problem will
 	  be removed.
 	--------------------------------------------------------------------------*/
-	bool remove_problem(std::string & problem_id);
+	bool remove_problem(problem_statement & problem);
 
 private:
 	/*--------------------------------------------------------------------------
@@ -107,6 +113,7 @@ private:
 coordinator::coordinator()
 {
 	using std::string; using std::pair;
+
 	// Look for Lambda images to load into the lambda_set
 	string path = "./lambda_images/lambda_table";
 	string line;
@@ -128,6 +135,23 @@ coordinator::coordinator()
 			}
 		}
 	}
+
+	// Start up AWS API
+	//ALLOCATION_TAG = "mplLambdaAWS";
+	Aws::InitAPI(options);
+	Aws::Client::ClientConfiguration clientConfig;
+	m_client = Aws::MakeShared<Aws::Lambda::LambdaClient>
+			   (ALLOCATION_TAG, clientConfig);
+}
+
+coordinator::~coordinator()
+{
+	// Empty the problem_set and lambda_set
+	problem_set.clear();
+	lambda_set.clear();
+
+	// Shut down the AWS API
+	Aws::ShutdownAPI(options);
 }
 
 bool coordinator::check_problem(problem_statement & problem)
@@ -185,10 +209,10 @@ bool coordinator::submit_problem(problem_statement & prob)
 	return launch_lambdas(prob.problem_id, service, num_lambdas);
 }
 
-bool coordinator::remove_problem(std::string & problem_id)
+bool coordinator::remove_problem(problem_statement & problem)
 {
-	// Remove problem from problem set after client indicates to do so
-	return problem_set.erase(problem_id) != 0;
+	// Remove problem from problem set after done responding
+	return problem_set.erase(problem.problem_id) != 0;
 }
 
 bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
@@ -200,24 +224,24 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 	vector<string> aggregator_vector;
 	compute_vector.reserve(3);
 	aggregator_vector.reserve(3);
+
 	// Find the lambdas to execute
 	string comp_id = problem_set.find(problem_id)->second.computation_id;
 	string compute_lambda = lambda_set.find(comp_id)->second.compute_path;
 	string aggregator_lambda = lambda_set.find(comp_id)->second.aggregator_path;
 	string time_limit = std::to_string(problem_set.find(problem_id)->second.duration);
 
-	compute_vector.push_back(compute_lambda);
-	compute_vector.push_back(problem_id);
-	compute_vector.push_back(time_limit);
-	aggregator_vector.push_back(aggregator_lambda);
-	aggregator_vector.push_back(problem_id);
-	aggregator_vector.push_back(time_limit);
-
 	// Choose subfunction to launch
 	switch (lambda_service)
 	{
 	// Launch AWS lambdas
 	case AWS_LAMBDA:
+		compute_vector.push_back(comp_id + "_compute");
+		compute_vector.push_back(problem_id);
+		compute_vector.push_back(time_limit);
+		aggregator_vector.push_back(comp_id + "_aggregator");
+		aggregator_vector.push_back(problem_id);
+		aggregator_vector.push_back(time_limit);
 		// Launch the computation lambdas
 		for (int i = 0; i < num_lambdas; ++i)
 		{
@@ -229,6 +253,13 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 
 	// Launch local host lambdas
 	default:
+		compute_vector.push_back(compute_lambda);
+		compute_vector.push_back(problem_id);
+		compute_vector.push_back(time_limit);
+		aggregator_vector.push_back(aggregator_lambda);
+		aggregator_vector.push_back(problem_id);
+		aggregator_vector.push_back(time_limit);
+		std::cout << "Launching local lambdas" << std::endl;
 		// Launch the computation lambdas
 		for (int i = 0; i < num_lambdas; ++i)
 		{
@@ -242,7 +273,34 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 
 void coordinator::launch_aws_lambda(std::vector<std::string> & lambda_args)
 {
+	// Code from mplambda/src/mpl_lambda_invoke.cpp
+	Aws::Lambda::Model::InvokeRequest invokeRequest;
+	invokeRequest.SetFunctionName(lambda_args[0].c_str());
+	invokeRequest.SetInvocationType(Aws::Lambda::Model::InvocationType::Event);
+	std::shared_ptr<Aws::IOStream> payload = 
+		Aws::MakeShared<Aws::StringStream>("PayloadData");
+	Aws::Utils::Json::JsonValue jsonPayload;
+	jsonPayload.WithString("problem_id", lambda_args[1].c_str());
+	jsonPayload.WithString("duration", lambda_args[2].c_str());
+	*payload << jsonPayload.View().WriteReadable();
+	invokeRequest.SetBody(payload);
+	invokeRequest.SetContentType("application/json");
 
+	auto outcome = m_client->Invoke(invokeRequest);
+	if (outcome.IsSuccess())
+	{
+		auto &result = outcome.GetResult();
+		Aws::IOStream & payload = result.GetPayload();
+		Aws::String functionResult;
+		std::getline(payload, functionResult);
+		std::cout << "Lambda result:\n" << functionResult << "\n\n";
+	}
+	else
+	{
+		auto &error = outcome.GetError();
+		std::cout << "Error: " << error.GetExceptionName() << "\nMessage: " 
+				  << error.GetMessage() << "\n\n";
+	}
 }
 
 void coordinator::launch_local_lambda(std::vector<std::string> & lambda_args)

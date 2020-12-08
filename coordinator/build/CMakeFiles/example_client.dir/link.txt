@@ -1,0 +1,1 @@
+/usr/bin/c++   -fopenmp -DHAS_AWS_SDK    CMakeFiles/example_client.dir/src/example_client.cpp.o  -o example_client -lgdp 

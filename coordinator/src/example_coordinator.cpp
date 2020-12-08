@@ -11,7 +11,6 @@
 
 
 int main(int argc, char**argv) 
-try
 {
 	using std::cout; using std::endl; using std::string;
 	using json = nlohmann::json;
@@ -41,6 +40,9 @@ try
 		close(server_socket);
 		exit(1);
 	}
+
+	// Coordinator handles launching of lambdas indicated in problem_statements
+	coordinator coord;
 
 	// Main while loop
 	bool running = true;
@@ -76,7 +78,6 @@ try
 		else
 		{
 			string response;
-			coordinator coord;
 
 			// Check the problem
 			problem_statement problem = json_to_problem(j);
@@ -104,20 +105,12 @@ try
 			strcpy(buffer, response.c_str());
 			send(connection, buffer, response.length() + 1, 0);
 		}
-		// Get OK from the client
 		// Remove the problem from the problem set
+		// TODO: Add multithreading support so coordinator can wait for client
+		// to respond with OK before removing the problem from the problem set 
+		//coord.remove_problem(problem);
 		close(connection);
 	}
 	close(server_socket);
 	return 0;
-}
-catch (const std::invalid_argument & ex)
-{
-	std::clog << ex.what() << std::endl;
-	return EXIT_FAILURE;
-}
-catch (const std::exception & ex)
-{
-	std::clog << ex.what() << std::endl;
-	return EXIT_FAILURE;
 }

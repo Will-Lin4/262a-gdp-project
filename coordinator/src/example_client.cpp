@@ -21,6 +21,7 @@ using std::string;
 using std::cout;
 using std::endl;
 
+void write_output_to_file(std::vector<uint8_t> out, void * udata);
 
 int main(int argc, char ** argv)
 {
@@ -35,21 +36,23 @@ int main(int argc, char ** argv)
 
 	// Create GDP DataCapsule
 	gdp_agent gdp;
-	string gdp_bucket_name = "example_client_test";
+	string gdp_bucket_name = "example_coordinator_test";
 	string lambda_name     = "test_local";
 
 	// Try to create the gdp bucket
 	EP_STAT estat = gdp.create(gdp_bucket_name);
 	if (!EP_STAT_ISOK(estat))
 	{
-		cout << "Could not create GDP DataCapsule: " << gdp_bucket_name << endl;
+		cout << "Could not create GDP DataCapsule: " << gdp_bucket_name;
+		cout << " (it may already exist)" << endl;
 	}
 	// Try to open the gdp bucket
+	// Note that gdp_agent::open always returns !EP_STAT_ISOK()
 	estat = gdp.open(gdp_bucket_name);
-	if (!EP_STAT_ISOK(estat))
+	/*if (!EP_STAT_ISOK(estat))
 	{
 		cout << "Could not open GDP DataCapsule: " << gdp_bucket_name << endl;
-	}
+	}*/
 	
 	// Try to write to the gdp bucket
 	estat = gdp.write(gdp_bucket_name, json_object);
@@ -103,7 +106,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 	
-	// Send JSON string to coordiantor server
+	// Send JSON string to coordinator server
 	send(client_socket, buffer, json_str.length() + 1, 0);
 	//cout << "client sent: " << buffer << endl;
 
@@ -111,9 +114,22 @@ int main(int argc, char ** argv)
 	int read_size = read(client_socket, buffer, BUFFER_SIZE - 1);
 	buffer[read_size] = '\0';
 	string coordinator_response(buffer);
+	
 	if (coordinator_response == PROBLEM_OK)
 	{
 		cout << "The problem was submitted" << endl;
+		bool subscribed = false;
+		string output_file_str = "./output/" + prob.problem_id + "_output";
+		const char * output_file = output_file_str.c_str();
+		// Try to open the output bucket
+		string output_bucket = prob.problem_id + "_output";
+		estat = gdp.open(output_bucket);
+		// Note that gdp_agent::open always returns !EP_STAT_ISOK()
+		/*if (!EP_STAT_ISOK(estat))
+		{
+			cout << "Could not open output bucket (" << output_bucket 
+				 << "), trying to subscribe anyway" << endl;
+		}*/
 		
 		// Start timer
 		auto start = std::chrono::steady_clock::now();
@@ -128,11 +144,22 @@ int main(int argc, char ** argv)
 						   (current - start).count();
 			if (elapsed > prob.duration + 5)
 			{
-				cout << "Timeout for output" << endl;
+				cout << "Timeout: if output exists, it is in " << output_file;
+				cout << endl;
 				timeout = true;
 			}
 
-			// Try to read the output bucket
+			// Try to subscribe to the output bucket
+			if (!subscribed)
+			{
+				gdp.subscribe(output_bucket, &write_output_to_file,
+							  (void*)output_file);
+				subscribed = true;
+			}
+			else
+			{
+				sleep(1);
+			}
 		}
 
 		// Display output
@@ -153,3 +180,23 @@ int main(int argc, char ** argv)
 	return 0;
 }
 
+
+void write_output_to_file(std::vector<uint8_t> out, void * udata)
+{
+	auto received_data = (char *) out.data();
+	char * output_file_name{static_cast<char*>(udata)};
+
+	cout << "Client has received data written to output DataCapsule:" << endl;
+	cout << "\t" << received_data << endl;
+
+	std::ofstream output_file(output_file_name);
+	if (output_file.is_open())
+	{
+		output_file << received_data << "\n";
+		output_file.close();
+	}
+	else
+	{
+		cout << "Could not open output file " << output_file_name << endl;
+	}
+}
