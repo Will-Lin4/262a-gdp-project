@@ -222,12 +222,13 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 	string compute_lambda = lambda_set.find(comp_id)->second.compute_path;
 	string aggregator_lambda = lambda_set.find(comp_id)->second.aggregator_path;
 	int duration = problem_set.find(problem_id)->second.duration;
+	string time_limit = std::to_string(duration);
 
 	// Set the deadline
-	auto deadline = std::chrono::system_clock::now();
-	deadline += std::chrono::seconds(duration);
-	std::time_t t = std::chrono::system_clock::to_time_t(deadline);	
-	string time_limit = std::ctime(&t);		// Uses UTC
+//	auto deadline = std::chrono::system_clock::now();
+//	deadline += std::chrono::seconds(duration);
+//	std::time_t t = std::chrono::system_clock::to_time_t(deadline);	
+//	string time_limit = std::ctime(&t);		// Uses UTC
 
 	// Set up parameter vectors
 	vector<string> compute_vector;
