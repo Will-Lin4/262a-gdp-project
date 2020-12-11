@@ -1,0 +1,22 @@
+[Unit]
+Description=GDP REST gateway
+Wants=lighttpd.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+Environment=GDP_ROOT=@GDP_ROOT@
+User=@GDP_USER@
+
+# give router time to start up
+ExecStart=/bin/sh @GDP_ROOT@/sbin/gdp-rest-wrapper.sh
+Restart=always
+
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=gdp-rest
+SyslogFacility=@GDP_SYSLOG_FACILITY@
+SyslogLevel=@GDP_SYSLOG_LEVEL@
+
+[Install]
+WantedBy=multi-user.target

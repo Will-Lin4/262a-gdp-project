@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+import argparse
+from twisted.internet import reactor
+from autobahn.twisted.websocket import WebSocketClientFactory, \
+        WebSocketClientProtocol, connectWS
+
+TIMEOUT = 5
+
+
+class SendProtocol(WebSocketClientProtocol):
+
+    def __init__(self, payload, *args):
+        super(SendProtocol, self).__init__(*args)
+        self.payload = bytes(payload)
+
+    def onOpen(self):
+        print "Sending data: %r" % self.payload
+        self.sendMessage(self.payload, True)
+
+    def onMessage(self, payload, isBinary):
+        print payload
+
+class SendProtocolClientFactory(WebSocketClientFactory):
+
+    def __init__(self, payload, *args):
+        super(SendProtocolClientFactory, self).__init__(*args)
+        self._payload = payload
+
+    def buildProtocol(self, addr):
+        protocol = SendProtocol(self._payload)
+        protocol.factory = self
+        return protocol
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="A websocket client")
+    parser.add_argument("-t", "--timeout", type=int, default=TIMEOUT,
+                        help="Time to wait before disconnecting, "
+                             "default: %d s" % TIMEOUT)
+    parser.add_argument("-d", "--data", type=str,
+                        help="Data to send on connection")
+    parser.add_argument("url", help="Remote websocket server address, "
+                                    "e.g. ws://127.0.0.1:9000")
+
+    args = parser.parse_args()
+
+    factory = SendProtocolClientFactory(args.data, args.url)
+    connectWS(factory)
+    reactor.callLater(args.timeout, reactor.stop)
+    reactor.run()

@@ -1,0 +1,97 @@
+-- Schema for the external -> internal log name mapping
+
+--  ----- BEGIN LICENSE BLOCK -----
+--	GDP: Global Data Plane
+--	From the Ubiquitous Swarm Lab, 490 Cory Hall, U.C. Berkeley.
+--
+--	Copyright (c) 2015-2018, Regents of the University of California.
+--	All rights reserved.
+--
+--	Permission is hereby granted, without written agreement and without
+--	license or royalty fees, to use, copy, modify, and distribute this
+--	software and its documentation for any purpose, provided that the above
+--	copyright notice and the following two paragraphs appear in all copies
+--	of this software.
+--
+--	IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+--	SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST
+--	PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+--	EVEN IF REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--
+--	REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
+--	LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+--	FOR A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION,
+--	IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO
+--	OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
+--	OR MODIFICATIONS.
+--  ----- END LICENSE BLOCK -----
+
+-- We create some roles for convenience
+CREATE ROLE IF NOT EXISTS hongd_reader;
+CREATE ROLE IF NOT EXISTS hongd_update;
+CREATE ROLE IF NOT EXISTS hongd_admin;
+
+-- the database is pretty simple....
+CREATE DATABASE IF NOT EXISTS gdp_hongd
+	DEFAULT CHARACTER SET 'utf8';
+USE gdp_hongd;
+
+CREATE TABLE IF NOT EXISTS human_to_gdp (
+	hname VARCHAR(255) PRIMARY KEY,
+	gname BINARY(32));
+GRANT SELECT (hname, gname) ON human_to_gdp TO hongd_reader;
+GRANT SELECT, INSERT ON human_to_gdp TO hongd_update;
+GRANT ALL PRIVILEGES ON human_to_gdp TO hongd_admin;
+
+-- Minimally privileged user for doing reads, well known
+-- password.  Anonymous users kick out too many warnings.
+CREATE USER IF NOT EXISTS '@GDP_USER_NAME@'@'%'
+	IDENTIFIED BY '@GDP_USER_PASSWORD@';
+GRANT hongd_reader TO '@GDP_USER_NAME@'@'%';
+SET DEFAULT ROLE hongd_reader FOR '@GDP_USER_NAME@'@'%';
+
+-- privileged user for doing creations (append only)
+-- (should figure out a better way of managing the password)
+CREATE USER IF NOT EXISTS '@CREATION_SERVICE_NAME@'@'%'
+	IDENTIFIED BY '@CREATION_SERVICE_PASSWORD@';
+GRANT hongd_update TO '@CREATION_SERVICE_NAME@'@'%';
+SET DEFAULT ROLE hongd_update FOR '@CREATION_SERVICE_NAME@'@'%';
+
+-- privileged user for administration
+CREATE USER IF NOT EXISTS '@HONGD_ADMIN_NAME@'@'%'
+	IDENTIFIED BY '@HONGD_ADMIN_PASSWORD@';
+GRANT hongd_admin TO '@HONGD_ADMIN_NAME@'@'%';
+SET DEFAULT ROLE hongd_admin FOR '@HONGD_ADMIN_NAME@'@'%';
+
+-- convenience view showing printable contents
+CREATE OR REPLACE VIEW human_to_printable AS
+	SELECT hname, TO_BASE64(gname) AS pname
+	FROM human_to_gdp;
+GRANT SELECT on human_to_printable TO hongd_reader;
+GRANT SELECT on human_to_printable TO hongd_update;
+GRANT SELECT on human_to_printable TO hongd_admin;
+
+-- convenience script to query service
+DELIMITER //
+CREATE OR REPLACE PROCEDURE
+	hname2gname(pat VARCHAR(255))
+  BEGIN
+	SELECT *
+	FROM human_to_printable
+	WHERE hname LIKE IFNULL(pat, '%');
+  END //
+DELIMITER ;
+GRANT EXECUTE ON PROCEDURE hname2gname TO hongd_reader;
+GRANT EXECUTE ON PROCEDURE hname2gname TO hongd_update;
+GRANT EXECUTE ON PROCEDURE hname2gname TO hongd_admin;
+
+-- convenience script to delete entries
+DELIMITER //
+CREATE OR REPLACE PROCEDURE
+	hname_delete(pat VARCHAR(255))
+  BEGIN
+	DELETE FROM human_to_printable
+	WHERE hname LIKE pat;
+  END //
+DELIMITER ;
+GRANT EXECUTE ON PROCEDURE hname_delete TO hongd_admin;
