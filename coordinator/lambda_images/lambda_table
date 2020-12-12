@@ -1,4 +1,5 @@
-computation_id		path_to_compute_lambda						path_to_aggregator_lambda
-test_local			./lambda_images/test_local_compute			./lambda_images/test_local_aggregator
-mplambda_local		./lambda_images/mplambda_local_compute		./lambda_images/mplambda_local_aggregator
-mplambda_aws		mplambda_aws_compute						mplambda_aws_aggregator
+computation_id			path_to_compute_lambda						path_to_aggregator_lambda
+test_local				./lambda_images/test_local_compute			./lambda_images/test_local_aggregator
+mplambda_local			./lambda_images/mplambda_local_compute		./lambda_images/mplambda_local_aggregator
+mplambda_aws			mplambda_aws_compute						mplambda_aws_aggregator
+mpl_gdp_lambda_aws_test	mpl_gdp_lambda_aws_test						mpl_gdp_lambda_aws_test

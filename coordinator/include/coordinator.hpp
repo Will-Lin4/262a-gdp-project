@@ -9,7 +9,6 @@
 #include <sstream>
 #include <chrono>
 
-#include "lambda_service.h"
 #include "problem_statement.h"
 
 #include <aws/lambda-runtime/runtime.h>
@@ -172,7 +171,8 @@ bool coordinator::check_problem(problem_statement & problem)
 		problem.duration = DEFAULT_DURATION;
 	}
 	// If the quality of service is not set, set it to LOW
-	level qos = check_qos(problem);
+	//level qos = check_qos(problem);
+	int qos = check_qos(problem);
 	if (qos != problem.quality_of_service)
 	{
 		std::cout << "Setting quality of service to " << qos << std::endl;
@@ -188,15 +188,17 @@ bool coordinator::submit_problem(problem_statement & prob)
 	std::pair<std::string,problem_statement>prob_pair(prob.problem_id,prob);
 	problem_set.insert(prob_pair);
 	// Select lambda service to use
-	int service = LOCAL_HOST;
+	//int service = LOCAL_HOST;
+	int service = prob.service;
 	// Use QOS to determine how many compute lambdas to launch
 	int num_lambdas = LOW_QOS_LAMBDAS;
-	level qos = prob.quality_of_service;
-	if (qos == HIGH)
+	//level qos = prob.quality_of_service;
+	int qos = prob.quality_of_service;
+	if (qos == LEVEL_HIGH)
 	{
 		num_lambdas = HIGH_QOS_LAMBDAS;
 	}
-	else if (qos == MEDIUM)
+	else if (qos == LEVEL_MEDIUM)
 	{
 		num_lambdas = MEDIUM_QOS_LAMBDAS;
 	}
@@ -247,7 +249,7 @@ bool coordinator::launch_lambdas(std::string & problem_id, int lambda_service,
 	switch (lambda_service)
 	{
 	// Launch AWS lambdas
-	case AWS_LAMBDA:
+	case SERVICE_AWS:
 		// Launch the computation lambdas
 		for (int i = 0; i < num_lambdas; ++i)
 		{

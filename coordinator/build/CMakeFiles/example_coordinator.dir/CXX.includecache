@@ -21,8 +21,6 @@ sstream
 -
 chrono
 -
-lambda_service.h
-../include/lambda_service.h
 problem_statement.h
 ../include/problem_statement.h
 aws/lambda-runtime/runtime.h
@@ -362,8 +360,6 @@ utility
 vector
 -
 
-../include/lambda_service.h
-
 ../include/problem_statement.h
 string
 -
@@ -387,8 +383,6 @@ coordinator.hpp
 /root/coordinator/src/coordinator.hpp
 problem_statement.h
 /root/coordinator/src/problem_statement.h
-lambda_service.h
-/root/coordinator/src/lambda_service.h
 shared.h
 /root/coordinator/src/shared.h
 

@@ -6,7 +6,6 @@
 
 #include "coordinator.hpp"
 #include "problem_statement.h"
-#include "lambda_service.h"
 #include "shared.h"
 
 

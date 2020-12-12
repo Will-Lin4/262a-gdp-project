@@ -37,11 +37,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAS_AWS_SDK")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAS_AWS_SDK")
 
 
-set(GDP_LIBRARIES "gdp")
-
 include_directories(include)
+include_directories(../mplambda/include)
 add_executable(example_client src/example_client.cpp)
-target_link_libraries(example_client ${GDP_LIBRARIES})
+target_link_libraries(example_client gdp)
 
 add_executable(example_coordinator src/example_coordinator.cpp)
 target_link_libraries(example_coordinator AWS::aws-lambda-runtime ${AWSSDK_LINK_LIBRARIES})

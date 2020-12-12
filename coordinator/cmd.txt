@@ -1,0 +1,1 @@
+./example_client input.json example_test mpl_gdp_lambda_aws_test 60 aws

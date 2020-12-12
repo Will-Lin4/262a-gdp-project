@@ -6,5 +6,5 @@ CXX_FLAGS =  -fopenmp -DHAS_AWS_SDK   -std=c++1z
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/root/coordinator/include 
+CXX_INCLUDES = -I/root/coordinator/include -I/root/coordinator/../mplambda/include 
 

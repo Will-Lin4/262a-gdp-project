@@ -11,12 +11,28 @@
   A problem can have 3 levels of urgency/quality of service. These levels are
   used to determine how many compute nodes are launched by the coordinator.
 ------------------------------------------------------------------------------*/
+#define LEVEL_LOW 		0
+#define LEVEL_MEDIUM	1
+#define LEVEL_HIGH 		2
+
+#define SERVICE_DEFAULT	0
+#define SERVICE_LOCAL	1
+#define SERVICE_AWS		2
+/*
 enum level
 {
 	LOW    = 0,
 	MEDIUM = 1,
 	HIGH   = 2
 };
+
+enum lambda_service
+{
+	DEFAULT_SERVICE	= 0,
+	LOCAL_SERVICE	= 1,
+	AWS_SERVICE		= 2
+};
+*/
 
 /*------------------------------------------------------------------------------
   A problem_statement contains all data that the coordinator needs from the 
@@ -43,9 +59,15 @@ typedef struct problem_statement
 	int duration;
 
 	/*--------------------------------------------------------------------------
+	  Service on which to run the lambdas
+	--------------------------------------------------------------------------*/
+	int service;
+
+	/*--------------------------------------------------------------------------
 	  Determines how many compute lambdas should be launched
 	--------------------------------------------------------------------------*/
-	level quality_of_service;
+	//level quality_of_service;
+	int quality_of_service;
 
 } problem_statement;
 
@@ -55,6 +77,7 @@ nlohmann::json problem_to_json(problem_statement & prob)
 	j["problem_id"] = prob.problem_id;
 	j["computation_id"] = prob.computation_id;
 	j["duration"] = prob.duration;
+	j["service"] = prob.service;
 	j["quality_of_service"] = prob.quality_of_service;
 	return j;
 }
@@ -65,10 +88,25 @@ problem_statement json_to_problem(nlohmann::json & jobj)
 	prob.problem_id         = jobj["problem_id"];
 	prob.computation_id     = jobj["computation_id"];
 	prob.duration           = jobj["duration"];
+	prob.service 			= jobj["service"];
 	prob.quality_of_service = jobj["quality_of_service"];
 	return prob;
 }
 
+int check_qos(problem_statement prob)
+{
+	switch (prob.quality_of_service)
+	{
+	case 1:
+		return LEVEL_MEDIUM;
+	case 2:
+		return LEVEL_HIGH;
+	default:
+		return LEVEL_LOW;
+	}
+}
+
+/*
 level check_qos(problem_statement prob)
 {
 	switch (prob.quality_of_service)
@@ -81,5 +119,5 @@ level check_qos(problem_statement prob)
 		return LOW;
 	}
 }
-
+*/
 #endif

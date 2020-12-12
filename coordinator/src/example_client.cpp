@@ -6,6 +6,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <chrono>
+#include <time.h>
+#include <random>
+#include <thread>
 
 #include "client.hpp"
 #include "gdp_agent.hpp"
@@ -13,8 +16,10 @@
 #include "problem_statement.h"
 #include "shared.h"
 
-#define DURATION 	5
-#define QOS 		MEDIUM
+//#define DURATION 	5
+//#define QOS 		MEDIUM
+
+#define EXEC_PROCESS "lambda_images/mpl_robot"
 
 using json = nlohmann::json;
 using std::string;
@@ -25,50 +30,83 @@ void write_output_to_file(std::vector<uint8_t> out, void * udata);
 
 int main(int argc, char ** argv)
 {
-	if (argc != 2)
+	if (argc != 6 && argc != 5)
 	{
-		cout << "Provide a JSON parameter file to upload to the GDP" << endl;
+		cout << "./example_client <input json> <problem name> <computation name> <duration> [<service>]" << endl;
+		cout << "\tinput json: a JSON parameter file to upload to the GDP" << endl;
+		cout << "\tproblem name: a problem name, used in GDP name" << endl;
+		cout << "\tcomputation name: name of the lambda to be used for computation" << endl;
+		cout << "\tduration: problem duration" << endl;
+		cout << "\tservice: service to use [ local | aws ]" << endl;
 		exit(1);
 	}
+
+	std::cout << time(NULL) << "\tSTART TIMESTAMP" << std::endl;
+
 	// Find the JSON file
 	std::ifstream json_file(argv[1]);
-	nlohmann::json json_object = json::parse(json_file);
+	int random = rand() % 100000;
+	std::string problem_name = std::string(argv[2]) + std::to_string(random);
+	std::string lambda_name = std::string(argv[3]);
+	std::string prob_duration = std::string(argv[4]);
+	std::string service;
+	if (argc == 5)
+		service == std::to_string(SERVICE_DEFAULT);
+	else
+		service == std::string(argv[5]);
+
+    std::string data((std::istreambuf_iterator<char>(json_file)),
+                      std::istreambuf_iterator<char>());
+    json json_data = json::parse(data);
+    std::vector<uint8_t> cbor = json::to_cbor(json_data);
+	//nlohmann::json json_object = json::parse(json_file);
 
 	// Create GDP DataCapsule
-	gdp_agent gdp;
-	string gdp_bucket_name = "example_coordinator_test";
-	string lambda_name     = "test_local";
+	gdp_agent agent;
+	//string gdp_bucket_name = "example_coordinator_test";
+	//string lambda_name     = "test_local"; // mpl_gdp_lambda_aws_test
+	//string lambda_name = SOMETHING;
+
+	
+	string input_bucket_name = problem_name + "_input";
+	string output_bucket_name = problem_name + "_output";
 
 	// Try to create the gdp bucket
-	EP_STAT estat = gdp.create(gdp_bucket_name);
-	if (!EP_STAT_ISOK(estat))
+	EP_STAT estat;
+	estat = agent.create(input_bucket_name);
+	estat = agent.create(output_bucket_name);
+	/*if (!EP_STAT_ISOK(estat))
 	{
 		cout << "Could not create GDP DataCapsule: " << gdp_bucket_name;
 		cout << " (it may already exist)" << endl;
-	}
+	}*/
 	// Try to open the gdp bucket
 	// Note that gdp_agent::open always returns !EP_STAT_ISOK()
-	estat = gdp.open(gdp_bucket_name);
+	estat = agent.open(input_bucket_name);
 	/*if (!EP_STAT_ISOK(estat))
 	{
 		cout << "Could not open GDP DataCapsule: " << gdp_bucket_name << endl;
 	}*/
 	
 	// Try to write to the gdp bucket
-	estat = gdp.write(gdp_bucket_name, json_object);
+	//estat = gdp.write(gdp_bucket_name, json_object);
+    //EP_STAT estat = agent.write_bytes(input_bucket_name, cbor.data(), cbor.size());
+	estat = agent.write_bytes(input_bucket_name, cbor.data(), cbor.size());
 	if (!EP_STAT_ISOK(estat))
 	{
 		cout << "Could not write to GDP DataCapsule" << endl;
-		cout << "DataCapsule name: " << gdp_bucket_name << endl;
+		cout << "DataCapsule name: " << input_bucket_name << endl;
 		cout << "JSON parameter file: " << argv[1] << endl;
 	}
 
 	// Create problem statement	
 	problem_statement prob;
-	prob.problem_id = gdp_bucket_name;
+	prob.problem_id = problem_name;
 	prob.computation_id = lambda_name;
-	prob.duration = DURATION; 
-	prob.quality_of_service = QOS;
+	prob.duration = atoi(prob_duration.c_str()); 
+	prob.service = atoi(service.c_str());
+	//prob.quality_of_service = QOS;
+	prob.quality_of_service = LEVEL_MEDIUM;
 
 	// Convert to JSON
 	json j = problem_to_json(prob);
@@ -117,6 +155,14 @@ int main(int argc, char ** argv)
 	
 	if (coordinator_response == PROBLEM_OK)
 	{
+		std::vector<char *> exec_vector;
+		exec_vector.reserve(3);
+		exec_vector.push_back(const_cast<char *>(EXEC_PROCESS));
+		exec_vector.push_back(const_cast<char *>(output_bucket_name.c_str()));
+		exec_vector.push_back(NULL);
+		char ** exec_array = exec_vector.data();
+		execvp(exec_array[0], &exec_array[0]);
+		/*
 		cout << "The problem was submitted" << endl;
 		bool subscribed = false;
 		string output_file_str = "./output/" + prob.problem_id + "_output";
@@ -125,12 +171,13 @@ int main(int argc, char ** argv)
 		string output_bucket = prob.problem_id + "_output";
 		estat = gdp.open(output_bucket);
 		// Note that gdp_agent::open always returns !EP_STAT_ISOK()
+		*/
 		/*if (!EP_STAT_ISOK(estat))
 		{
 			cout << "Could not open output bucket (" << output_bucket 
 				 << "), trying to subscribe anyway" << endl;
 		}*/
-		
+		/*
 		// Start timer
 		auto start = std::chrono::steady_clock::now();
 		// Check output bucket for result
@@ -161,8 +208,10 @@ int main(int argc, char ** argv)
 				sleep(1);
 			}
 		}
-
+		*/
+		
 		// Display output
+		// print cost path
 
 	}	
 	else if (coordinator_response == PROBLEM_ERROR)

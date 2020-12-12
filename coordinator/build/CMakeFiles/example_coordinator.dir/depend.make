@@ -3,7 +3,6 @@
 
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../include/coordinator.hpp
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../include/json.hpp
-CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../include/lambda_service.h
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../include/problem_statement.h
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../include/shared.h
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o: ../src/example_coordinator.cpp

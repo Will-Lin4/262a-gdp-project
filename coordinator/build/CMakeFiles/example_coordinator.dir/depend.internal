@@ -4,7 +4,6 @@
 CMakeFiles/example_coordinator.dir/src/example_coordinator.cpp.o
  ../include/coordinator.hpp
  ../include/json.hpp
- ../include/lambda_service.h
  ../include/problem_statement.h
  ../include/shared.h
  /root/coordinator/src/example_coordinator.cpp
