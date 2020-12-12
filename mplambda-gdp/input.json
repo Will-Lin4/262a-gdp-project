@@ -1,0 +1,1 @@
+{"scenario":"se3", "coordinator":"35.165.206.179", "start":"0,0,0,1,270,160,-200", "goal":"0,0,0,1,270,160,-400", "min":"53.46,-21.25,-476.86", "max":"402.96,269.25,-91.0", "algorithm":"rrt", "env":"resources/se3/Twistycool_env.dae", "robot":"resources/se3/Twistycool_robot.dae", "envFrame":""}
